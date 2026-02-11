@@ -1,7 +1,6 @@
-````skill
 ---
 name: groq-stt
-description: Transcribe audio files using Groq API (Whisper models).
+description: Transcribe audio files using Groq API (Whisper models). Use when user needs to transcribe audio to text.
 ---
 
 # Groq STT Skill
@@ -26,4 +25,3 @@ node scripts/transcribe.mjs /path/to/audio.mp4
 
 - Uses the `whisper-large-v3-turbo` model by default.
 - Supported file types: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm
-````
