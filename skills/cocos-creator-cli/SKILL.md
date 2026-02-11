@@ -27,8 +27,8 @@ description: Command-line tools for AI to read and manipulate Cocos Creator 2.4.
 会话模式解决索引变化问题，适合 AI 批量操作：
 
 ```
-1. open  → 打开会话，获取 sessionId 和 sceneUuid
-2. 操作  → tree/add/get/delete（带 sessionId 和 uuid）
+1. open  → 打开会话，获取 sessionId
+2. 操作  → tree/add/get/set/delete（带 sessionId）
 3. close → 保存场景，关闭会话
 ```
 
@@ -40,13 +40,13 @@ node cocos-cli/scene_session.js open <场景文件路径>
 
 返回示例：
 ```json
-{"sessionId": "a0e9c696", "sceneUuid": "xxx", "nodeCount": 10}
+{"sessionId": "a0e9c696", "nodeCount": 10}
 ```
 
 ### 查看节点树
 
 ```bash
-node cocos-cli/scene_session.js tree --session=<sessionId> --uuid=<sceneUuid>
+node cocos-cli/scene_session.js tree --session=<sessionId>
 ```
 
 输出格式：
@@ -66,10 +66,10 @@ Root #1
 
 ```bash
 # 基本添加
-node cocos-cli/scene_session.js add <父节点路径> <节点名称> --session=<id> --uuid=<uuid>
+node cocos-cli/scene_session.js add <父节点路径> <节点名称> --session=<id>
 
 # 带组件和属性
-node cocos-cli/scene_session.js add Canvas Sprite --session=<id> --uuid=<uuid> --type=sprite --x=100 --y=200 --at=1
+node cocos-cli/scene_session.js add Canvas Sprite --session=<id> --type=sprite --x=100 --y=200 --at=1
 ```
 
 选项：
@@ -84,22 +84,22 @@ node cocos-cli/scene_session.js add Canvas Sprite --session=<id> --uuid=<uuid> -
 ### 修改节点属性
 
 ```bash
-node cocos-cli/scene_session.js set <节点路径> --session=<id> --uuid=<uuid> [选项]
+node cocos-cli/scene_session.js set <节点路径> --session=<id> [选项]
 ```
 
 示例：
 ```bash
 # 修改位置
-node cocos-cli/scene_session.js set Canvas/Player --session=<id> --uuid=<uuid> --x=100 --y=200
+node cocos-cli/scene_session.js set Canvas/Player --session=<id> --x=100 --y=200
 
 # 修改名称和激活状态
-node cocos-cli/scene_session.js set 5 --session=<id> --uuid=<uuid> --name=NewName --active=false
+node cocos-cli/scene_session.js set 5 --session=<id> --name=NewName --active=false
 
 # 修改大小、颜色、透明度
-node cocos-cli/scene_session.js set Sprite --session=<id> --uuid=<uuid> --width=100 --height=50 --color=#FF0000 --opacity=128
+node cocos-cli/scene_session.js set Sprite --session=<id> --width=100 --height=50 --color=#FF0000 --opacity=128
 
 # 修改旋转和缩放
-node cocos-cli/scene_session.js set Player --session=<id> --uuid=<uuid> --rotation=45 --scaleX=2 --scaleY=2
+node cocos-cli/scene_session.js set Player --session=<id> --rotation=45 --scaleX=2 --scaleY=2
 ```
 
 选项：
@@ -124,25 +124,25 @@ node cocos-cli/scene_session.js set Player --session=<id> --uuid=<uuid> --rotati
 
 ```bash
 # 按索引
-node cocos-cli/scene_session.js get 5 --session=<id> --uuid=<uuid>
+node cocos-cli/scene_session.js get 5 --session=<id>
 
 # 按路径
-node cocos-cli/scene_session.js get Canvas/Tilemap --session=<id> --uuid=<uuid>
+node cocos-cli/scene_session.js get Canvas/Tilemap --session=<id>
 
 # 获取组件
-node cocos-cli/scene_session.js get Canvas/Tilemap Tilemap --session=<id> --uuid=<uuid>
+node cocos-cli/scene_session.js get Canvas/Tilemap Tilemap --session=<id>
 ```
 
 ### 删除节点
 
 ```bash
-node cocos-cli/scene_session.js delete <节点路径> --session=<id> --uuid=<uuid>
+node cocos-cli/scene_session.js delete <节点路径> --session=<id>
 ```
 
 ### 关闭会话
 
 ```bash
-node cocos-cli/scene_session.js close --session=<id> --uuid=<uuid>
+node cocos-cli/scene_session.js close --session=<id>
 ```
 
 ## 单次操作（非会话模式）

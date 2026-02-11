@@ -56,23 +56,21 @@ function getSceneUuid(firePath) {
     return null;
 }
 
-// 获取会话文件路径
-function getSessionPath(sceneUuid) {
-    return path.join(TEMP_DIR, `cocos_session_${sceneUuid}.json`);
+// 获取会话文件路径（用 sessionId 命名）
+function getSessionPath(sessionId) {
+    return path.join(TEMP_DIR, `cocos_session_${sessionId}.json`);
 }
 
 // 检查会话是否有效
-function validateSession(sessionId, sessionPath) {
+function validateSession(sessionId) {
+    const sessionPath = getSessionPath(sessionId);
     if (!fs.existsSync(sessionPath)) {
         return { valid: false, error: '会话不存在，请先打开场景' };
     }
     
     try {
         const session = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-        if (session.sessionId !== sessionId) {
-            return { valid: false, error: '会话已失效，请重新打开场景' };
-        }
-        return { valid: true, session };
+        return { valid: true, session, sessionPath };
     } catch (e) {
         return { valid: false, error: '会话文件损坏' };
     }
@@ -243,13 +241,6 @@ function cmdOpen(firePath) {
         return;
     }
     
-    // 获取场景 UUID
-    const sceneUuid = getSceneUuid(absolutePath);
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '无法获取场景 UUID' }));
-        return;
-    }
-    
     // 读取场景数据
     let data;
     try {
@@ -261,7 +252,7 @@ function cmdOpen(firePath) {
     
     // 生成新会话
     const sessionId = generateSessionId();
-    const sessionPath = getSessionPath(sceneUuid);
+    const sessionPath = getSessionPath(sessionId);
     
     // 构建映射
     const { idMap, indexMap } = buildMaps(data);
@@ -270,35 +261,27 @@ function cmdOpen(firePath) {
     const session = {
         sessionId,
         scenePath: absolutePath,
-        sceneUuid,
         createdAt: Date.now(),
         data,
         idMap,
         indexMap
     };
     
-    // 保存会话（覆盖旧的）
+    // 保存会话
     saveSession(sessionPath, session);
     
     // 返回会话信息和节点树摘要
     const nodeCount = Object.keys(indexMap).length;
     console.log(JSON.stringify({
         sessionId,
-        sceneUuid,
         nodeCount,
         message: `会话已打开，共 ${nodeCount} 个节点`
     }, null, 2));
 }
 
 // 关闭会话
-function cmdClose(sessionId, sceneUuid) {
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
-        return;
-    }
-    
-    const sessionPath = getSessionPath(sceneUuid);
-    const validation = validateSession(sessionId, sessionPath);
+function cmdClose(sessionId) {
+    const validation = validateSession(sessionId);
     
     if (!validation.valid) {
         console.log(JSON.stringify({ error: validation.error }));
@@ -306,6 +289,7 @@ function cmdClose(sessionId, sceneUuid) {
     }
     
     const session = validation.session;
+    const sessionPath = validation.sessionPath;
     
     // 保存场景文件
     fs.writeFileSync(session.scenePath, JSON.stringify(session.data, null, 2), 'utf8');
@@ -320,14 +304,8 @@ function cmdClose(sessionId, sceneUuid) {
 }
 
 // 获取节点树
-function cmdTree(sessionId, sceneUuid) {
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
-        return;
-    }
-    
-    const sessionPath = getSessionPath(sceneUuid);
-    const validation = validateSession(sessionId, sessionPath);
+function cmdTree(sessionId) {
+    const validation = validateSession(sessionId);
     
     if (!validation.valid) {
         console.log(JSON.stringify({ error: validation.error }));
@@ -379,14 +357,8 @@ function cmdTree(sessionId, sceneUuid) {
 }
 
 // 获取节点信息
-function cmdGet(sessionId, sceneUuid, nodeIndex) {
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
-        return;
-    }
-    
-    const sessionPath = getSessionPath(sceneUuid);
-    const validation = validateSession(sessionId, sessionPath);
+function cmdGet(sessionId, nodeIndex) {
+    const validation = validateSession(sessionId);
     
     if (!validation.valid) {
         console.log(JSON.stringify({ error: validation.error }));
@@ -424,14 +396,8 @@ function cmdGet(sessionId, sceneUuid, nodeIndex) {
 }
 
 // 添加节点
-function cmdAdd(sessionId, sceneUuid, parentRef, nodeName, options) {
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
-        return;
-    }
-    
-    const sessionPath = getSessionPath(sceneUuid);
-    const validation = validateSession(sessionId, sessionPath);
+function cmdAdd(sessionId, parentRef, nodeName, options) {
+    const validation = validateSession(sessionId);
     
     if (!validation.valid) {
         console.log(JSON.stringify({ error: validation.error }));
@@ -439,6 +405,7 @@ function cmdAdd(sessionId, sceneUuid, parentRef, nodeName, options) {
     }
     
     const session = validation.session;
+    const sessionPath = validation.sessionPath;
     const data = session.data;
     
     // 查找父节点
@@ -512,14 +479,8 @@ function cmdAdd(sessionId, sceneUuid, parentRef, nodeName, options) {
 }
 
 // 删除节点
-function cmdDelete(sessionId, sceneUuid, nodeRef) {
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
-        return;
-    }
-    
-    const sessionPath = getSessionPath(sceneUuid);
-    const validation = validateSession(sessionId, sessionPath);
+function cmdDelete(sessionId, nodeRef) {
+    const validation = validateSession(sessionId);
     
     if (!validation.valid) {
         console.log(JSON.stringify({ error: validation.error }));
@@ -527,6 +488,7 @@ function cmdDelete(sessionId, sceneUuid, nodeRef) {
     }
     
     const session = validation.session;
+    const sessionPath = validation.sessionPath;
     const data = session.data;
     
     // 查找节点
@@ -582,14 +544,8 @@ function cmdDelete(sessionId, sceneUuid, nodeRef) {
 }
 
 // 修改节点属性
-function cmdSet(sessionId, sceneUuid, nodeRef, options) {
-    if (!sceneUuid) {
-        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
-        return;
-    }
-    
-    const sessionPath = getSessionPath(sceneUuid);
-    const validation = validateSession(sessionId, sessionPath);
+function cmdSet(sessionId, nodeRef, options) {
+    const validation = validateSession(sessionId);
     
     if (!validation.valid) {
         console.log(JSON.stringify({ error: validation.error }));
@@ -597,6 +553,7 @@ function cmdSet(sessionId, sceneUuid, nodeRef, options) {
     }
     
     const session = validation.session;
+    const sessionPath = validation.sessionPath;
     const data = session.data;
     
     // 查找节点
@@ -839,13 +796,13 @@ if (args.length === 0) {
     console.log(JSON.stringify({
         usage: 'node scene_session.js <command> [args...] [options]',
         commands: {
-            'open <场景路径>': '打开会话',
-            'close --session=<ID> --uuid=<UUID>': '关闭会话并保存',
-            'tree --session=<ID> --uuid=<UUID>': '显示节点树',
-            'get <节点> --session=<ID> --uuid=<UUID>': '获取节点信息',
-            'add <父节点> <名称> --session=<ID> --uuid=<UUID> [--type=sprite|label] [--x=N] [--y=N] [--at=N]': '添加节点',
-            'set <节点> --session=<ID> --uuid=<UUID> [选项]': '修改节点属性',
-            'delete <节点> --session=<ID> --uuid=<UUID>': '删除节点'
+            'open <场景路径>': '打开会话，返回 sessionId',
+            'close --session=<ID>': '关闭会话并保存',
+            'tree --session=<ID>': '显示节点树',
+            'get <节点> --session=<ID>': '获取节点信息',
+            'add <父节点> <名称> --session=<ID> [--type=sprite|label] [--x=N] [--y=N] [--at=N]': '添加节点',
+            'set <节点> --session=<ID> [选项]': '修改节点属性',
+            'delete <节点> --session=<ID>': '删除节点'
         },
         setOptions: {
             '--name=<名称>': '修改节点名称',
@@ -880,42 +837,42 @@ switch (command) {
         break;
         
     case 'close':
-        cmdClose(options.session, options.uuid);
+        cmdClose(options.session);
         break;
         
     case 'tree':
-        cmdTree(options.session, options.uuid);
+        cmdTree(options.session);
         break;
         
     case 'get':
         if (args.length < 2) {
-            console.log(JSON.stringify({ error: '用法: node scene_session.js get <节点索引> --session=<ID> --uuid=<UUID>' }));
+            console.log(JSON.stringify({ error: '用法: node scene_session.js get <节点> --session=<ID>' }));
         } else {
-            cmdGet(options.session, options.uuid, args[1]);
+            cmdGet(options.session, args[1]);
         }
         break;
         
     case 'add':
         if (args.length < 3) {
-            console.log(JSON.stringify({ error: '用法: node scene_session.js add <父节点> <名称> --session=<ID> --uuid=<UUID> [选项]' }));
+            console.log(JSON.stringify({ error: '用法: node scene_session.js add <父节点> <名称> --session=<ID> [选项]' }));
         } else {
-            cmdAdd(options.session, options.uuid, args[1], args[2], options);
+            cmdAdd(options.session, args[1], args[2], options);
         }
         break;
         
     case 'set':
         if (args.length < 2) {
-            console.log(JSON.stringify({ error: '用法: node scene_session.js set <节点> --session=<ID> --uuid=<UUID> [选项]' }));
+            console.log(JSON.stringify({ error: '用法: node scene_session.js set <节点> --session=<ID> [选项]' }));
         } else {
-            cmdSet(options.session, options.uuid, args[1], options);
+            cmdSet(options.session, args[1], options);
         }
         break;
         
     case 'delete':
         if (args.length < 2) {
-            console.log(JSON.stringify({ error: '用法: node scene_session.js delete <节点> --session=<ID> --uuid=<UUID>' }));
+            console.log(JSON.stringify({ error: '用法: node scene_session.js delete <节点> --session=<ID>' }));
         } else {
-            cmdDelete(options.session, options.uuid, args[1]);
+            cmdDelete(options.session, args[1]);
         }
         break;
         
