@@ -1,8 +1,7 @@
 /**
  * Cocos Creator 场景(.fire)节点删除工具
  * 
- * 注意：删除节点不会从数组中移除元素（避免破坏索引），
- * 而是标记为已销毁并从父节点的 _children 中移除引用。
+ * 真正删除节点（从数组中移除元素），并重建所有索引引用
  * 
  * 用法：
  * node delete_node.js <场景文件路径> <节点索引|节点路径>
@@ -15,21 +14,6 @@
 
 const fs = require('fs');
 const path = require('path');
-
-// cc.Object 的标志位
-const ObjFlags = {
-    Destroyed: 1,           // 已销毁
-    RealDestroyed: 2,       // 真正销毁
-    Destroying: 4,          // 正在销毁
-    Deactivating: 8,        // 正在停用
-    LockedInEditor: 256,    // 编辑器中锁定
-    HideInHierarchy: 512,   // 在层级中隐藏
-    IsAsset: 4096,          // 是资源
-    DontDestroy: 4096,      // 切换场景时不销毁
-    DontSave: 4096 << 1,    // 不保存
-    EditorOnly: 4096 << 2,  // 仅编辑器
-    Dirty: 4096 << 3,       // 已修改
-};
 
 // 查找节点索引
 function findNodeIndex(data, nodeRef) {
@@ -102,8 +86,7 @@ function collectNodeAndChildren(data, nodeIndex, collected = new Set()) {
     // 收集所有组件
     if (node._components) {
         for (const compRef of node._components) {
-            const compIndex = compRef.__id__;
-            collected.add(compIndex);
+            collected.add(compRef.__id__);
         }
     }
     
@@ -117,23 +100,39 @@ function collectNodeAndChildren(data, nodeIndex, collected = new Set()) {
     return collected;
 }
 
-// 标记节点及其子节点为已销毁
-function markAsDestroyed(data, indices) {
-    for (const index of indices) {
-        const obj = data[index];
-        if (obj) {
-            // 设置 Destroyed 标志
-            obj._objFlags = (obj._objFlags || 0) | ObjFlags.Destroyed;
-            // 清空父引用
-            if (obj._parent) {
-                obj._parent = null;
+// 重建所有 __id__ 引用（删除元素后索引变化）
+function rebuildReferences(data, deletedIndices) {
+    // 构建旧索引到新索引的映射
+    const indexMap = {};
+    let newIndex = 0;
+    for (let oldIndex = 0; oldIndex < data.length; oldIndex++) {
+        if (!deletedIndices.has(oldIndex)) {
+            indexMap[oldIndex] = newIndex;
+            newIndex++;
+        }
+    }
+    
+    // 更新所有 __id__ 引用
+    function updateRef(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (obj.__id__ !== undefined) {
+            const oldId = obj.__id__;
+            if (indexMap[oldId] !== undefined) {
+                obj.__id__ = indexMap[oldId];
             }
-            // 清空节点引用
-            if (obj.node) {
-                obj.node = null;
+        } else {
+            for (const key of Object.keys(obj)) {
+                updateRef(obj[key]);
             }
         }
     }
+    
+    for (const item of data) {
+        updateRef(item);
+    }
+    
+    return indexMap;
 }
 
 // 从父节点的 _children 中移除引用
@@ -206,8 +205,15 @@ function deleteNode(firePath, nodeRef) {
     // 从父节点移除引用
     removeFromParent(data, nodeIndex);
     
-    // 标记为已销毁
-    markAsDestroyed(data, indicesToDelete);
+    // 重建引用（更新所有 __id__）
+    console.log(`重建索引引用...`);
+    rebuildReferences(data, indicesToDelete);
+    
+    // 真正删除元素（从大到小排序，避免索引错乱）
+    const sortedIndices = Array.from(indicesToDelete).sort((a, b) => b - a);
+    for (const idx of sortedIndices) {
+        data.splice(idx, 1);
+    }
     
     // 保存文件
     fs.writeFileSync(firePath, JSON.stringify(data, null, 2), 'utf8');

@@ -245,6 +245,67 @@ function findParentIndex(data, parentRef) {
     return currentIndex;
 }
 
+// 计算插入位置在数组中的索引
+function calculateInsertIndex(data, parentNode, insertPosition) {
+    // 如果插入到末尾，返回数组长度
+    if (insertPosition < 0 || insertPosition >= parentNode._children.length) {
+        return data.length;
+    }
+    
+    // 找到插入位置对应的子节点索引
+    const childRef = parentNode._children[insertPosition];
+    if (childRef) {
+        return childRef.__id__;
+    }
+    
+    return data.length;
+}
+
+// 在数组指定位置插入元素，并重建所有引用
+function insertElementsAndRebuild(data, insertIndex, newItems) {
+    const insertCount = newItems.length;
+    const originalLength = data.length;
+    
+    // 插入新元素
+    data.splice(insertIndex, 0, ...newItems);
+    
+    // 构建旧索引到新索引的映射
+    const indexMap = {};
+    for (let oldIndex = 0; oldIndex < originalLength; oldIndex++) {
+        if (oldIndex < insertIndex) {
+            indexMap[oldIndex] = oldIndex;
+        } else {
+            indexMap[oldIndex] = oldIndex + insertCount;
+        }
+    }
+    // 新元素的索引
+    for (let i = 0; i < insertCount; i++) {
+        indexMap[originalLength + i] = insertIndex + i;
+    }
+    
+    // 更新所有 __id__ 引用
+    function updateRef(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (obj.__id__ !== undefined) {
+            const oldId = obj.__id__;
+            if (indexMap[oldId] !== undefined) {
+                obj.__id__ = indexMap[oldId];
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                updateRef(obj[key]);
+            }
+        }
+    }
+    
+    for (const item of data) {
+        updateRef(item);
+    }
+    
+    return indexMap;
+}
+
 // 主函数
 function addNode(firePath, parentRef, nodeName, options) {
     // 读取场景文件
@@ -276,49 +337,69 @@ function addNode(firePath, parentRef, nodeName, options) {
     
     console.log(`父节点: ${parentNode._name} (#${parentIndex})`);
     
-    // 在数组末尾添加新节点
-    const newNodeIndex = data.length;
-    const newNode = createNodeData(nodeName, parentIndex, options);
-    data.push(newNode);
+    // 计算插入位置
+    const insertPosition = options.at >= 0 ? options.at : (parentNode._children ? parentNode._children.length : 0);
+    const insertIndex = calculateInsertIndex(data, parentNode, insertPosition);
     
-    console.log(`新节点索引: #${newNodeIndex}`);
-    console.log(`新节点 _id: ${newNode._id}`);
+    console.log(`插入位置: 第 ${insertPosition} 个子节点，数组索引 ${insertIndex}`);
+    
+    // 创建新节点和组件（使用临时索引）
+    const newNode = createNodeData(nodeName, parentIndex, options);
+    const newItems = [newNode];
     
     // 如果需要添加组件
-    let componentIndex = null;
     if (options.type === 'sprite') {
-        componentIndex = data.length;
-        const spriteComp = createSpriteComponentData(newNodeIndex);
-        data.push(spriteComp);
-        newNode._components.push({ "__id__": componentIndex });
-        console.log(`Sprite 组件索引: #${componentIndex}`);
+        const spriteComp = createSpriteComponentData(-1); // 临时用 -1
+        newItems.push(spriteComp);
+        newNode._components.push({ "__id__": -2 }); // 临时用相对索引
+        console.log(`添加 Sprite 组件`);
     } else if (options.type === 'label') {
-        componentIndex = data.length;
-        const labelComp = createLabelComponentData(newNodeIndex);
-        data.push(labelComp);
-        newNode._components.push({ "__id__": componentIndex });
-        console.log(`Label 组件索引: #${componentIndex}`);
+        const labelComp = createLabelComponentData(-1);
+        newItems.push(labelComp);
+        newNode._components.push({ "__id__": -2 });
+        console.log(`添加 Label 组件`);
     }
     
-    // 更新父节点的 _children 数组
+    console.log(`将插入 ${newItems.length} 个元素`);
+    
+    // 更新父节点的 _children 数组（在插入前，使用旧索引）
     if (!parentNode._children) {
         parentNode._children = [];
     }
     
-    // 根据 --at 选项决定插入位置
-    if (options.at >= 0 && options.at < parentNode._children.length) {
-        // 插入到指定位置
-        parentNode._children.splice(options.at, 0, { "__id__": newNodeIndex });
-        console.log(`插入位置: 第 ${options.at} 个子节点`);
+    // 插入到 _children（使用旧索引）
+    if (insertPosition < parentNode._children.length) {
+        parentNode._children.splice(insertPosition, 0, { "__id__": -3 }); // 临时
     } else {
-        // 添加到末尾
-        parentNode._children.push({ "__id__": newNodeIndex });
-        console.log(`插入位置: 末尾 (第 ${parentNode._children.length - 1} 个)`);
+        parentNode._children.push({ "__id__": -3 }); // 临时
+    }
+    
+    // 插入元素并重建所有引用
+    const indexMap = insertElementsAndRebuild(data, insertIndex, newItems);
+    
+    // 更新新节点的父节点引用（现在父节点索引可能已经变化）
+    const newParentIndex = indexMap[parentIndex];
+    newNode._parent.__id__ = newParentIndex;
+    
+    // 更新新节点的组件引用
+    if (newNode._components.length > 0) {
+        newNode._components[0].__id__ = insertIndex + 1;
+    }
+    if (newItems.length > 1) {
+        newItems[1].node.__id__ = insertIndex;
+    }
+    
+    // 更新 _children 中的新节点引用
+    const actualParent = data[newParentIndex];
+    const childIndex = actualParent._children.findIndex(c => c.__id__ === -3);
+    if (childIndex >= 0) {
+        actualParent._children[childIndex].__id__ = insertIndex;
     }
     
     // 保存文件
     fs.writeFileSync(firePath, JSON.stringify(data, null, 2), 'utf8');
-    console.log(`\n✓ 节点 "${nodeName}" 已添加到 ${parentNode._name}`);
+    console.log(`\n✓ 节点 "${nodeName}" 已添加到 ${actualParent._name}`);
+    console.log(`  新节点索引: #${insertIndex}`);
     console.log(`  场景文件已更新: ${firePath}`);
     
     return true;

@@ -139,6 +139,12 @@ node cocos-cli/scene_session.js get Canvas/Tilemap Tilemap --session=<id>
 node cocos-cli/scene_session.js delete <节点路径> --session=<id>
 ```
 
+删除行为：
+- 真正从数组中移除元素（非标记销毁）
+- 递归删除所有子节点和组件
+- 自动重建所有 `__id__` 索引引用
+- 与 Cocos Creator 编辑器行为一致
+
 ### 关闭会话
 
 ```bash
@@ -177,6 +183,8 @@ node cocos-cli/add_node.js <场景路径> <父节点> <节点名> [--type=sprite
 ```bash
 node cocos-cli/delete_node.js <场景路径> <节点索引或路径>
 ```
+
+删除节点会同时删除其所有子节点和组件，并自动重建索引引用。
 
 ## 首次使用
 
@@ -225,6 +233,7 @@ node cocos-cli/build_script_map.js <cocos项目路径>
 ## 注意事项
 
 1. **会话模式优先**：批量操作务必使用 `scene_session.js`，避免索引错乱
-2. **并发保护**：同一场景的新会话会使旧会话失效
-3. **版本兼容**：仅支持 Cocos Creator 2.4.x
-4. **资源引用**：自动转换为 `db://assets/xxx` 格式
+2. **删除行为**：删除节点会真正移除数组元素并重建索引，与编辑器行为一致
+3. **并发保护**：同一场景的新会话会使旧会话失效
+4. **版本兼容**：仅支持 Cocos Creator 2.4.x
+5. **资源引用**：自动转换为 `db://assets/xxx` 格式

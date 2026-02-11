@@ -478,6 +478,67 @@ function cmdAdd(sessionId, parentRef, nodeName, options) {
     }, null, 2));
 }
 
+// 递归收集节点及其所有子节点和组件的索引
+function collectNodeAndChildren(data, nodeIndex, collected = new Set()) {
+    if (collected.has(nodeIndex)) return collected;
+    
+    const node = data[nodeIndex];
+    if (!node) return collected;
+    
+    collected.add(nodeIndex);
+    
+    // 收集所有组件
+    if (node._components) {
+        for (const compRef of node._components) {
+            collected.add(compRef.__id__);
+        }
+    }
+    
+    // 递归收集子节点
+    if (node._children) {
+        for (const childRef of node._children) {
+            collectNodeAndChildren(data, childRef.__id__, collected);
+        }
+    }
+    
+    return collected;
+}
+
+// 重建所有 __id__ 引用（删除元素后索引变化）
+function rebuildReferences(data, deletedIndices) {
+    // 构建旧索引到新索引的映射
+    const indexMap = {};
+    let newIndex = 0;
+    for (let oldIndex = 0; oldIndex < data.length; oldIndex++) {
+        if (!deletedIndices.has(oldIndex)) {
+            indexMap[oldIndex] = newIndex;
+            newIndex++;
+        }
+    }
+    
+    // 更新所有 __id__ 引用
+    function updateRef(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (obj.__id__ !== undefined) {
+            const oldId = obj.__id__;
+            if (indexMap[oldId] !== undefined) {
+                obj.__id__ = indexMap[oldId];
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                updateRef(obj[key]);
+            }
+        }
+    }
+    
+    for (const item of data) {
+        updateRef(item);
+    }
+    
+    return indexMap;
+}
+
 // 删除节点
 function cmdDelete(sessionId, nodeRef) {
     const validation = validateSession(sessionId);
@@ -517,7 +578,10 @@ function cmdDelete(sessionId, nodeRef) {
     const node = data[nodeIndex];
     const nodeName = node._name;
     
-    // 从父节点移除引用
+    // 收集所有需要删除的索引（节点 + 子节点 + 组件）
+    const indicesToDelete = collectNodeAndChildren(data, nodeIndex);
+    
+    // 从父节点的 _children 中移除引用
     if (node._parent) {
         const parentIndex = node._parent.__id__;
         const parent = data[parentIndex];
@@ -526,20 +590,27 @@ function cmdDelete(sessionId, nodeRef) {
         }
     }
     
-    // 标记为已销毁
-    node._objFlags = (node._objFlags || 0) | 1;
-    node._parent = null;
+    // 重建引用（更新所有 __id__）
+    const indexMap = rebuildReferences(data, indicesToDelete);
     
-    // 从映射中移除
-    if (node._id) delete session.idMap[node._id];
-    delete session.indexMap[nodeIndex];
+    // 真正删除元素（从大到小排序，避免索引错乱）
+    const sortedIndices = Array.from(indicesToDelete).sort((a, b) => b - a);
+    for (const idx of sortedIndices) {
+        data.splice(idx, 1);
+    }
+    
+    // 重建映射
+    const maps = buildMaps(data);
+    session.idMap = maps.idMap;
+    session.indexMap = maps.indexMap;
     
     // 保存会话
     saveSession(sessionPath, session);
     
     console.log(JSON.stringify({
         success: true,
-        message: `节点 "${nodeName}" (#${nodeIndex}) 已删除`
+        message: `节点 "${nodeName}" 已删除`,
+        deletedCount: indicesToDelete.size
     }, null, 2));
 }
 
