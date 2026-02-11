@@ -81,6 +81,45 @@ node cocos-cli/scene_session.js add Canvas Sprite --session=<id> --uuid=<uuid> -
 | `--at=N` | 插入位置（0=第一个子节点） |
 | `--active=false` | 设为不激活 |
 
+### 修改节点属性
+
+```bash
+node cocos-cli/scene_session.js set <节点路径> --session=<id> --uuid=<uuid> [选项]
+```
+
+示例：
+```bash
+# 修改位置
+node cocos-cli/scene_session.js set Canvas/Player --session=<id> --uuid=<uuid> --x=100 --y=200
+
+# 修改名称和激活状态
+node cocos-cli/scene_session.js set 5 --session=<id> --uuid=<uuid> --name=NewName --active=false
+
+# 修改大小、颜色、透明度
+node cocos-cli/scene_session.js set Sprite --session=<id> --uuid=<uuid> --width=100 --height=50 --color=#FF0000 --opacity=128
+
+# 修改旋转和缩放
+node cocos-cli/scene_session.js set Player --session=<id> --uuid=<uuid> --rotation=45 --scaleX=2 --scaleY=2
+```
+
+选项：
+| 选项 | 说明 | 示例 |
+|------|------|------|
+| `--name=<名称>` | 修改节点名称 | `--name=Player` |
+| `--active=true/false` | 修改激活状态 | `--active=false` |
+| `--x=<数值>` | 修改 X 坐标 | `--x=100` |
+| `--y=<数值>` | 修改 Y 坐标 | `--y=200` |
+| `--width=<数值>` | 修改宽度 | `--width=100` |
+| `--height=<数值>` | 修改高度 | `--height=50` |
+| `--anchorX=<0-1>` | 修改锚点 X | `--anchorX=0.5` |
+| `--anchorY=<0-1>` | 修改锚点 Y | `--anchorY=0.5` |
+| `--opacity=<0-255>` | 修改透明度 | `--opacity=128` |
+| `--color=<#RRGGBB>` | 修改颜色 | `--color=#FF0000` |
+| `--rotation=<角度>` | 修改旋转角度 | `--rotation=45` |
+| `--scaleX=<数值>` | 修改 X 缩放 | `--scaleX=2` |
+| `--scaleY=<数值>` | 修改 Y 缩放 | `--scaleY=2` |
+| `--zIndex=<数值>` | 修改层级顺序 | `--zIndex=10` |
+
 ### 获取节点信息
 
 ```bash

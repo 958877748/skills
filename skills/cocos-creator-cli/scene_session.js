@@ -581,15 +581,225 @@ function cmdDelete(sessionId, sceneUuid, nodeRef) {
     }, null, 2));
 }
 
+// 修改节点属性
+function cmdSet(sessionId, sceneUuid, nodeRef, options) {
+    if (!sceneUuid) {
+        console.log(JSON.stringify({ error: '缺少场景 UUID' }));
+        return;
+    }
+    
+    const sessionPath = getSessionPath(sceneUuid);
+    const validation = validateSession(sessionId, sessionPath);
+    
+    if (!validation.valid) {
+        console.log(JSON.stringify({ error: validation.error }));
+        return;
+    }
+    
+    const session = validation.session;
+    const data = session.data;
+    
+    // 查找节点
+    let nodeIndex;
+    if (/^\d+$/.test(nodeRef)) {
+        nodeIndex = parseInt(nodeRef);
+    } else {
+        for (const [idx, info] of Object.entries(session.indexMap)) {
+            if (info.name === nodeRef || info.path === nodeRef || info.path.endsWith('/' + nodeRef)) {
+                nodeIndex = parseInt(idx);
+                break;
+            }
+        }
+    }
+    
+    if (nodeIndex === undefined || !data[nodeIndex]) {
+        console.log(JSON.stringify({ error: `找不到节点: ${nodeRef}` }));
+        return;
+    }
+    
+    const node = data[nodeIndex];
+    const changes = {};
+    
+    // 修改名称
+    if (options.name !== undefined) {
+        const oldName = node._name;
+        node._name = options.name;
+        changes.name = { from: oldName, to: options.name };
+        // 更新映射
+        if (session.indexMap[nodeIndex]) {
+            session.indexMap[nodeIndex].name = options.name;
+        }
+    }
+    
+    // 修改激活状态
+    if (options.active !== undefined) {
+        const oldActive = node._active;
+        node._active = options.active;
+        changes.active = { from: oldActive, to: options.active };
+    }
+    
+    // 修改位置
+    if (options.x !== undefined || options.y !== undefined) {
+        if (!node._trs) {
+            node._trs = {
+                "__type__": "TypedArray",
+                "ctor": "Float64Array",
+                "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+            };
+        }
+        const oldX = node._trs.array[0];
+        const oldY = node._trs.array[1];
+        if (options.x !== undefined) node._trs.array[0] = options.x;
+        if (options.y !== undefined) node._trs.array[1] = options.y;
+        changes.position = {
+            from: [oldX, oldY],
+            to: [node._trs.array[0], node._trs.array[1]]
+        };
+    }
+    
+    // 修改大小
+    if (options.width !== undefined || options.height !== undefined) {
+        if (!node._contentSize) {
+            node._contentSize = { "__type__": "cc.Size", width: 0, height: 0 };
+        }
+        const oldW = node._contentSize.width;
+        const oldH = node._contentSize.height;
+        if (options.width !== undefined) node._contentSize.width = options.width;
+        if (options.height !== undefined) node._contentSize.height = options.height;
+        changes.size = {
+            from: { width: oldW, height: oldH },
+            to: { width: node._contentSize.width, height: node._contentSize.height }
+        };
+    }
+    
+    // 修改锚点
+    if (options.anchorX !== undefined || options.anchorY !== undefined) {
+        if (!node._anchorPoint) {
+            node._anchorPoint = { "__type__": "cc.Vec2", x: 0.5, y: 0.5 };
+        }
+        const oldX = node._anchorPoint.x;
+        const oldY = node._anchorPoint.y;
+        if (options.anchorX !== undefined) node._anchorPoint.x = options.anchorX;
+        if (options.anchorY !== undefined) node._anchorPoint.y = options.anchorY;
+        changes.anchor = {
+            from: [oldX, oldY],
+            to: [node._anchorPoint.x, node._anchorPoint.y]
+        };
+    }
+    
+    // 修改透明度
+    if (options.opacity !== undefined) {
+        const oldOpacity = node._opacity;
+        node._opacity = Math.max(0, Math.min(255, options.opacity));
+        changes.opacity = { from: oldOpacity, to: node._opacity };
+    }
+    
+    // 修改颜色
+    if (options.color !== undefined) {
+        // 支持格式: #RRGGBB 或 RRGGBB 或 rgb(r,g,b)
+        let color = options.color;
+        if (typeof color === 'string') {
+            if (color.startsWith('#')) color = color.slice(1);
+            if (color.length === 6) {
+                const r = parseInt(color.slice(0, 2), 16);
+                const g = parseInt(color.slice(2, 4), 16);
+                const b = parseInt(color.slice(4, 6), 16);
+                if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                    const oldColor = node._color ? `#${node._color.r.toString(16).padStart(2,'0')}${node._color.g.toString(16).padStart(2,'0')}${node._color.b.toString(16).padStart(2,'0')}` : null;
+                    node._color = { "__type__": "cc.Color", r, g, b, a: 255 };
+                    changes.color = { from: oldColor, to: color };
+                }
+            }
+        }
+    }
+    
+    // 修改旋转角度
+    if (options.rotation !== undefined) {
+        if (!node._eulerAngles) {
+            node._eulerAngles = { "__type__": "cc.Vec3", x: 0, y: 0, z: 0 };
+        }
+        const oldRotation = node._eulerAngles.z;
+        node._eulerAngles.z = options.rotation;
+        // 更新四元数（简化处理，仅绕 Z 轴旋转）
+        const rad = options.rotation * Math.PI / 180;
+        if (node._trs && node._trs.array) {
+            node._trs.array[3] = 0; // qx
+            node._trs.array[4] = 0; // qy
+            node._trs.array[5] = Math.sin(rad / 2); // qz
+            node._trs.array[6] = Math.cos(rad / 2); // qw
+        }
+        changes.rotation = { from: oldRotation, to: options.rotation };
+    }
+    
+    // 修改缩放
+    if (options.scaleX !== undefined || options.scaleY !== undefined) {
+        if (!node._trs) {
+            node._trs = {
+                "__type__": "TypedArray",
+                "ctor": "Float64Array",
+                "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+            };
+        }
+        const oldScaleX = node._trs.array[7];
+        const oldScaleY = node._trs.array[8];
+        if (options.scaleX !== undefined) node._trs.array[7] = options.scaleX;
+        if (options.scaleY !== undefined) node._trs.array[8] = options.scaleY;
+        changes.scale = {
+            from: [oldScaleX, oldScaleY],
+            to: [node._trs.array[7], node._trs.array[8]]
+        };
+    }
+    
+    // 修改层级
+    if (options.zIndex !== undefined) {
+        const oldZIndex = node._localZOrder || 0;
+        node._localZOrder = options.zIndex;
+        changes.zIndex = { from: oldZIndex, to: options.zIndex };
+    }
+    
+    // 保存会话
+    saveSession(sessionPath, session);
+    
+    if (Object.keys(changes).length === 0) {
+        console.log(JSON.stringify({
+            success: true,
+            message: `节点 "${node._name}" 未做任何修改`,
+            node: node._name,
+            index: nodeIndex
+        }, null, 2));
+    } else {
+        console.log(JSON.stringify({
+            success: true,
+            message: `节点 "${node._name}" 已修改`,
+            node: node._name,
+            index: nodeIndex,
+            changes
+        }, null, 2));
+    }
+}
+
 // 解析选项
 function parseOptions(args) {
     const options = {
         type: 'empty',
-        x: 0,
-        y: 0,
+        x: undefined,
+        y: undefined,
         at: -1,
         session: null,
-        uuid: null
+        uuid: null,
+        // set 命令的选项
+        name: undefined,
+        active: undefined,
+        width: undefined,
+        height: undefined,
+        anchorX: undefined,
+        anchorY: undefined,
+        opacity: undefined,
+        color: undefined,
+        rotation: undefined,
+        scaleX: undefined,
+        scaleY: undefined,
+        zIndex: undefined
     };
     
     args.forEach(arg => {
@@ -597,11 +807,24 @@ function parseOptions(args) {
             const [key, value] = arg.substring(2).split('=');
             switch (key) {
                 case 'type': options.type = value; break;
-                case 'x': options.x = parseFloat(value) || 0; break;
-                case 'y': options.y = parseFloat(value) || 0; break;
+                case 'x': options.x = parseFloat(value); break;
+                case 'y': options.y = parseFloat(value); break;
                 case 'at': options.at = parseInt(value); break;
                 case 'session': options.session = value; break;
                 case 'uuid': options.uuid = value; break;
+                // set 命令选项
+                case 'name': options.name = value; break;
+                case 'active': options.active = value === 'true'; break;
+                case 'width': options.width = parseFloat(value); break;
+                case 'height': options.height = parseFloat(value); break;
+                case 'anchorX': options.anchorX = parseFloat(value); break;
+                case 'anchorY': options.anchorY = parseFloat(value); break;
+                case 'opacity': options.opacity = parseInt(value); break;
+                case 'color': options.color = value; break;
+                case 'rotation': options.rotation = parseFloat(value); break;
+                case 'scaleX': options.scaleX = parseFloat(value); break;
+                case 'scaleY': options.scaleY = parseFloat(value); break;
+                case 'zIndex': options.zIndex = parseInt(value); break;
             }
         }
     });
@@ -619,9 +842,26 @@ if (args.length === 0) {
             'open <场景路径>': '打开会话',
             'close --session=<ID> --uuid=<UUID>': '关闭会话并保存',
             'tree --session=<ID> --uuid=<UUID>': '显示节点树',
-            'get <节点索引> --session=<ID> --uuid=<UUID>': '获取节点信息',
+            'get <节点> --session=<ID> --uuid=<UUID>': '获取节点信息',
             'add <父节点> <名称> --session=<ID> --uuid=<UUID> [--type=sprite|label] [--x=N] [--y=N] [--at=N]': '添加节点',
+            'set <节点> --session=<ID> --uuid=<UUID> [选项]': '修改节点属性',
             'delete <节点> --session=<ID> --uuid=<UUID>': '删除节点'
+        },
+        setOptions: {
+            '--name=<名称>': '修改节点名称',
+            '--active=true/false': '修改激活状态',
+            '--x=<数值>': '修改 X 坐标',
+            '--y=<数值>': '修改 Y 坐标',
+            '--width=<数值>': '修改宽度',
+            '--height=<数值>': '修改高度',
+            '--anchorX=<0-1>': '修改锚点 X',
+            '--anchorY=<0-1>': '修改锚点 Y',
+            '--opacity=<0-255>': '修改透明度',
+            '--color=<#RRGGBB>': '修改颜色',
+            '--rotation=<角度>': '修改旋转角度',
+            '--scaleX=<数值>': '修改 X 缩放',
+            '--scaleY=<数值>': '修改 Y 缩放',
+            '--zIndex=<数值>': '修改层级顺序'
         }
     }, null, 2));
     process.exit(0);
@@ -660,6 +900,14 @@ switch (command) {
             console.log(JSON.stringify({ error: '用法: node scene_session.js add <父节点> <名称> --session=<ID> --uuid=<UUID> [选项]' }));
         } else {
             cmdAdd(options.session, options.uuid, args[1], args[2], options);
+        }
+        break;
+        
+    case 'set':
+        if (args.length < 2) {
+            console.log(JSON.stringify({ error: '用法: node scene_session.js set <节点> --session=<ID> --uuid=<UUID> [选项]' }));
+        } else {
+            cmdSet(options.session, options.uuid, args[1], options);
         }
         break;
         
