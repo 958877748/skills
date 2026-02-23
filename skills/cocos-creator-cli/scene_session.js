@@ -15,9 +15,10 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
 
-// 临时文件目录
-const TEMP_DIR = '/tmp';
+// 临时文件目录（跨平台兼容）
+const TEMP_DIR = os.tmpdir();
 
 // 生成会话 ID（8字符，省 token）
 function generateSessionId() {
