@@ -12,24 +12,22 @@
  * 选项：
  * --type=sprite    添加 Sprite 组件
  * --type=label     添加 Label 组件
+ * --type=button    添加 Button 组件
+ * --type=layout    添加 Layout 组件
+ * --type=widget    添加 Widget 组件
+ * --type=particle  添加 ParticleSystem 组件
  * --type=empty     空节点（默认）
  * --x=100          设置 x 坐标
  * --y=200          设置 y 坐标
+ * --width=100      设置宽度
+ * --height=50     设置高度
+ * --at=1           插入到第 N 个子节点位置
  * --active=false   设置激活状态
  */
 
 const fs = require('fs');
 const path = require('path');
-
-// 生成类似 Cocos Creator 的 _id
-function generateId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
-    for (let i = 0; i < 22; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-}
+const { Components, generateId } = require('./components');
 
 // 创建默认节点数据
 function createNodeData(name, parentId, options = {}) {
@@ -82,71 +80,6 @@ function createNodeData(name, parentId, options = {}) {
         "_is3DNode": false,
         "_groupIndex": 0,
         "groupIndex": 0,
-        "_id": generateId()
-    };
-}
-
-// 创建 Sprite 组件数据
-function createSpriteComponentData(nodeId) {
-    return {
-        "__type__": "cc.Sprite",
-        "_name": "",
-        "_objFlags": 0,
-        "node": { "__id__": nodeId },
-        "_enabled": true,
-        "_materials": [
-            { "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432" }
-        ],
-        "_srcBlendFactor": 770,
-        "_dstBlendFactor": 771,
-        "_spriteFrame": {
-            "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061"
-        },
-        "_type": 0,
-        "_sizeMode": 1,
-        "_fillType": 0,
-        "_fillCenter": {
-            "__type__": "cc.Vec2",
-            "x": 0,
-            "y": 0
-        },
-        "_fillStart": 0,
-        "_fillRange": 0,
-        "_isTrimmedMode": true,
-        "_atlas": null,
-        "_id": generateId()
-    };
-}
-
-// 创建 Label 组件数据
-function createLabelComponentData(nodeId) {
-    return {
-        "__type__": "cc.Label",
-        "_name": "",
-        "_objFlags": 0,
-        "node": { "__id__": nodeId },
-        "_enabled": true,
-        "_materials": [
-            { "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432" }
-        ],
-        "_useOriginalSize": true,
-        "_string": "",
-        "_horizontalAlign": 1,
-        "_verticalAlign": 1,
-        "_actualFontSize": 40,
-        "_fontSize": 40,
-        "_fontFamily": "Arial",
-        "_lineHeight": 40,
-        "_overflow": 0,
-        "_enableWrapText": true,
-        "_font": null,
-        "_isSystemFontUsed": true,
-        "_spacingX": 0,
-        "_isItalic": false,
-        "_isBold": false,
-        "_isUnderline": false,
-        "_underlineHeight": 2,
-        "_cacheMode": 0,
         "_id": generateId()
     };
 }
@@ -245,46 +178,97 @@ function findParentIndex(data, parentRef) {
     return currentIndex;
 }
 
-// 计算插入位置在数组中的索引
-function calculateInsertIndex(data, parentNode, insertPosition) {
-    // 如果插入到末尾，返回数组长度
-    if (insertPosition < 0 || insertPosition >= parentNode._children.length) {
-        return data.length;
-    }
-    
-    // 找到插入位置对应的子节点索引
-    const childRef = parentNode._children[insertPosition];
-    if (childRef) {
-        return childRef.__id__;
-    }
-    
-    return data.length;
-}
-
-// 在数组指定位置插入元素，并重建所有引用
-function insertElementsAndRebuild(data, insertIndex, newItems) {
-    const insertCount = newItems.length;
+// 重新排列数组，使其与 _children 顺序一致（节点后跟组件）
+function reorderArrayToMatchChildren(data) {
     const originalLength = data.length;
-    
-    // 插入新元素
-    data.splice(insertIndex, 0, ...newItems);
-    
-    // 构建旧索引到新索引的映射
+    const newArray = [];
     const indexMap = {};
-    for (let oldIndex = 0; oldIndex < originalLength; oldIndex++) {
-        if (oldIndex < insertIndex) {
-            indexMap[oldIndex] = oldIndex;
-        } else {
-            indexMap[oldIndex] = oldIndex + insertCount;
+    
+    // 保留 SceneAsset (index 0) 和 Scene (index 1)
+    newArray[0] = data[0];
+    newArray[1] = data[1];
+    indexMap[0] = 0;
+    indexMap[1] = 1;
+    
+    // 建立旧索引到原始数据的映射
+    const dataByIndex = {};
+    for (let i = 0; i < data.length; i++) {
+        if (data[i]) dataByIndex[i] = data[i];
+    }
+    
+    // 收集所有组件及其对应的节点索引
+    const componentsByNode = {};
+    for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        if (item && item.node && item.node.__id__ !== undefined) {
+            const nodeId = item.node.__id__;
+            if (!componentsByNode[nodeId]) componentsByNode[nodeId] = [];
+            componentsByNode[nodeId].push(i);
         }
     }
-    // 新元素的索引
-    for (let i = 0; i < insertCount; i++) {
-        indexMap[originalLength + i] = insertIndex + i;
+    
+    // 从 Scene (index 1) 开始递归遍历
+    function addNodeAndChildren(nodeIndex) {
+        if (nodeIndex === null || nodeIndex === undefined) return;
+        
+        const node = data[nodeIndex];
+        if (!node) return;
+        
+        // 添加节点
+        const newIndex = newArray.length;
+        indexMap[nodeIndex] = newIndex;
+        newArray.push(node);
+        
+        // 添加节点的组件（紧跟在节点后面）
+        if (node._components) {
+            for (const compRef of node._components) {
+                const compIndex = compRef.__id__;
+                if (compIndex !== undefined && dataByIndex[compIndex]) {
+                    const compNewIndex = newArray.length;
+                    indexMap[compIndex] = compNewIndex;
+                    newArray.push(dataByIndex[compIndex]);
+                }
+            }
+        }
+        
+        // 递归添加子节点
+        if (node._children) {
+            for (const childRef of node._children) {
+                addNodeAndChildren(childRef.__id__);
+            }
+        }
     }
     
-    // 更新所有 __id__ 引用
-    function updateRef(obj) {
+    // 从 Scene 的子节点开始
+    const scene = data[1];
+    if (scene && scene._children) {
+        for (const childRef of scene._children) {
+            addNodeAndChildren(childRef.__id__);
+        }
+    }
+    
+    // 添加根节点的组件（Scene 和 Canvas 的组件）
+    function addRootComponents(nodeIndex) {
+        const node = data[nodeIndex];
+        if (!node || !node._components) return;
+        
+        for (const compRef of node._components) {
+            const compIndex = compRef.__id__;
+            if (compIndex !== undefined && dataByIndex[compIndex] && indexMap[compIndex] === undefined) {
+                const compNewIndex = newArray.length;
+                indexMap[compIndex] = compNewIndex;
+                newArray.push(dataByIndex[compIndex]);
+            }
+        }
+    }
+    
+    // 添加 Scene 的组件
+    addRootComponents(1);
+    // 添加 Canvas 的组件
+    addRootComponents(2);
+    
+    // 重建所有 __id__ 引用
+    function updateRefs(obj) {
         if (!obj || typeof obj !== 'object') return;
         
         if (obj.__id__ !== undefined) {
@@ -294,16 +278,16 @@ function insertElementsAndRebuild(data, insertIndex, newItems) {
             }
         } else {
             for (const key of Object.keys(obj)) {
-                updateRef(obj[key]);
+                updateRefs(obj[key]);
             }
         }
     }
     
-    for (const item of data) {
-        updateRef(item);
+    for (const item of newArray) {
+        updateRefs(item);
     }
     
-    return indexMap;
+    return newArray;
 }
 
 // 主函数
@@ -339,67 +323,75 @@ function addNode(firePath, parentRef, nodeName, options) {
     
     // 计算插入位置
     const insertPosition = options.at >= 0 ? options.at : (parentNode._children ? parentNode._children.length : 0);
-    const insertIndex = calculateInsertIndex(data, parentNode, insertPosition);
+    console.log(`插入到 _children 位置: ${insertPosition}`);
     
-    console.log(`插入位置: 第 ${insertPosition} 个子节点，数组索引 ${insertIndex}`);
-    
-    // 创建新节点和组件（使用临时索引）
+    // 创建新节点和组件（追加末尾）
+    const newNodeIndex = data.length;
     const newNode = createNodeData(nodeName, parentIndex, options);
-    const newItems = [newNode];
+    data.push(newNode);
     
     // 如果需要添加组件
     if (options.type === 'sprite') {
-        const spriteComp = createSpriteComponentData(-1); // 临时用 -1
-        newItems.push(spriteComp);
-        newNode._components.push({ "__id__": -2 }); // 临时用相对索引
+        const spriteComp = Components.sprite(newNodeIndex);
+        data.push(spriteComp);
+        newNode._components.push({ "__id__": data.length - 1 });
         console.log(`添加 Sprite 组件`);
     } else if (options.type === 'label') {
-        const labelComp = createLabelComponentData(-1);
-        newItems.push(labelComp);
-        newNode._components.push({ "__id__": -2 });
+        const labelComp = Components.label(newNodeIndex);
+        data.push(labelComp);
+        newNode._components.push({ "__id__": data.length - 1 });
         console.log(`添加 Label 组件`);
+    } else if (options.type === 'button') {
+        const buttonComp = Components.button(newNodeIndex);
+        data.push(buttonComp);
+        newNode._components.push({ "__id__": data.length - 1 });
+        console.log(`添加 Button 组件`);
+    } else if (options.type === 'layout') {
+        const layoutComp = Components.layout(newNodeIndex);
+        data.push(layoutComp);
+        newNode._components.push({ "__id__": data.length - 1 });
+        console.log(`添加 Layout 组件`);
+    } else if (options.type === 'widget') {
+        const widgetComp = Components.widget(newNodeIndex);
+        data.push(widgetComp);
+        newNode._components.push({ "__id__":1 });
+        console.log(`添加 Widget 组件`);
+    } else if (options.type === 'particle') {
+        const particleComp = Components.particleSystem(newNodeIndex);
+        data.push(particleComp);
+        newNode._components.push({ "__id__": data.length - 1 });
+        console.log(`添加 ParticleSystem 组件`);
     }
     
-    console.log(`将插入 ${newItems.length} 个元素`);
-    
-    // 更新父节点的 _children 数组（在插入前，使用旧索引）
+    // 更新父节点的 _children 数组
     if (!parentNode._children) {
         parentNode._children = [];
     }
     
-    // 插入到 _children（使用旧索引）
+    // 插入到 _children 指定位置
     if (insertPosition < parentNode._children.length) {
-        parentNode._children.splice(insertPosition, 0, { "__id__": -3 }); // 临时
+        parentNode._children.splice(insertPosition, 0, { "__id__": newNodeIndex });
     } else {
-        parentNode._children.push({ "__id__": -3 }); // 临时
+        parentNode._children.push({ "__id__": newNodeIndex });
     }
     
-    // 插入元素并重建所有引用
-    const indexMap = insertElementsAndRebuild(data, insertIndex, newItems);
+    // 重新排列数组以匹配 _children 顺序
+    console.log(`重新排列数组...`);
+    const reorderedData = reorderArrayToMatchChildren(data);
     
-    // 更新新节点的父节点引用（现在父节点索引可能已经变化）
-    const newParentIndex = indexMap[parentIndex];
-    newNode._parent.__id__ = newParentIndex;
-    
-    // 更新新节点的组件引用
-    if (newNode._components.length > 0) {
-        newNode._components[0].__id__ = insertIndex + 1;
-    }
-    if (newItems.length > 1) {
-        newItems[1].node.__id__ = insertIndex;
-    }
-    
-    // 更新 _children 中的新节点引用
-    const actualParent = data[newParentIndex];
-    const childIndex = actualParent._children.findIndex(c => c.__id__ === -3);
-    if (childIndex >= 0) {
-        actualParent._children[childIndex].__id__ = insertIndex;
+    // 找到新节点的位置
+    let newIndex = -1;
+    for (let i = 0; i < reorderedData.length; i++) {
+        if (reorderedData[i]._name === nodeName) {
+            newIndex = i;
+            break;
+        }
     }
     
     // 保存文件
-    fs.writeFileSync(firePath, JSON.stringify(data, null, 2), 'utf8');
-    console.log(`\n✓ 节点 "${nodeName}" 已添加到 ${actualParent._name}`);
-    console.log(`  新节点索引: #${insertIndex}`);
+    fs.writeFileSync(firePath, JSON.stringify(reorderedData, null, 2), 'utf8');
+    console.log(`\n✓ 节点 "${nodeName}" 已添加到 ${parentNode._name}`);
+    console.log(`  新节点索引: #${newIndex}`);
     console.log(`  场景文件已更新: ${firePath}`);
     
     return true;

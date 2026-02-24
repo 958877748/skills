@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
+const { Components, generateId } = require('./components');
 
 // 临时文件目录（跨平台兼容）
 const TEMP_DIR = os.tmpdir();
@@ -23,16 +24,6 @@ const TEMP_DIR = os.tmpdir();
 // 生成会话 ID（8字符，省 token）
 function generateSessionId() {
     return crypto.randomBytes(4).toString('hex');
-}
-
-// 生成节点 _id（22字符，类似 Cocos Creator）
-function generateId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
-    for (let i = 0; i < 22; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
 }
 
 // 获取场景 UUID（从 .meta 文件）
@@ -122,6 +113,95 @@ function buildMaps(data) {
     return { idMap, indexMap };
 }
 
+// 重新排列数组，使其与 _children 顺序一致（节点后跟组件）
+function reorderArrayToMatchChildren(data) {
+    const newArray = [];
+    const indexMap = {};
+    
+    newArray[0] = data[0];
+    newArray[1] = data[1];
+    indexMap[0] = 0;
+    indexMap[1] = 1;
+    
+    const dataByIndex = {};
+    for (let i = 0; i < data.length; i++) {
+        if (data[i]) dataByIndex[i] = data[i];
+    }
+    
+    function addNodeAndChildren(nodeIndex) {
+        if (nodeIndex === null || nodeIndex === undefined) return;
+        
+        const node = data[nodeIndex];
+        if (!node) return;
+        
+        const newIndex = newArray.length;
+        indexMap[nodeIndex] = newIndex;
+        newArray.push(node);
+        
+        if (node._components) {
+            for (const compRef of node._components) {
+                const compIndex = compRef.__id__;
+                if (compIndex !== undefined && dataByIndex[compIndex]) {
+                    const compNewIndex = newArray.length;
+                    indexMap[compIndex] = compNewIndex;
+                    newArray.push(dataByIndex[compIndex]);
+                }
+            }
+        }
+        
+        if (node._children) {
+            for (const childRef of node._children) {
+                addNodeAndChildren(childRef.__id__);
+            }
+        }
+    }
+    
+    const scene = data[1];
+    if (scene && scene._children) {
+        for (const childRef of scene._children) {
+            addNodeAndChildren(childRef.__id__);
+        }
+    }
+    
+    function addRootComponents(nodeIndex) {
+        const node = data[nodeIndex];
+        if (!node || !node._components) return;
+        
+        for (const compRef of node._components) {
+            const compIndex = compRef.__id__;
+            if (compIndex !== undefined && dataByIndex[compIndex] && indexMap[compIndex] === undefined) {
+                const compNewIndex = newArray.length;
+                indexMap[compIndex] = compNewIndex;
+                newArray.push(dataByIndex[compIndex]);
+            }
+        }
+    }
+    
+    addRootComponents(1);
+    addRootComponents(2);
+    
+    function updateRefs(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (obj.__id__ !== undefined) {
+            const oldId = obj.__id__;
+            if (indexMap[oldId] !== undefined) {
+                obj.__id__ = indexMap[oldId];
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                updateRefs(obj[key]);
+            }
+        }
+    }
+    
+    for (const item of newArray) {
+        updateRefs(item);
+    }
+    
+    return newArray;
+}
+
 // 创建默认节点数据
 function createNodeData(name, parentId, options = {}) {
     return {
@@ -172,61 +252,6 @@ function createNodeData(name, parentId, options = {}) {
         "_is3DNode": false,
         "_groupIndex": 0,
         "groupIndex": 0,
-        "_id": generateId()
-    };
-}
-
-// 创建 Sprite 组件
-function createSpriteComponent(nodeId) {
-    return {
-        "__type__": "cc.Sprite",
-        "_name": "",
-        "_objFlags": 0,
-        "node": { "__id__": nodeId },
-        "_enabled": true,
-        "_materials": [{ "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432" }],
-        "_srcBlendFactor": 770,
-        "_dstBlendFactor": 771,
-        "_spriteFrame": { "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061" },
-        "_type": 0,
-        "_sizeMode": 1,
-        "_fillType": 0,
-        "_fillCenter": { "__type__": "cc.Vec2", "x": 0, "y": 0 },
-        "_fillStart": 0,
-        "_fillRange": 0,
-        "_isTrimmedMode": true,
-        "_atlas": null,
-        "_id": generateId()
-    };
-}
-
-// 创建 Label 组件
-function createLabelComponent(nodeId) {
-    return {
-        "__type__": "cc.Label",
-        "_name": "",
-        "_objFlags": 0,
-        "node": { "__id__": nodeId },
-        "_enabled": true,
-        "_materials": [{ "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432" }],
-        "_useOriginalSize": true,
-        "_string": "",
-        "_horizontalAlign": 1,
-        "_verticalAlign": 1,
-        "_actualFontSize": 40,
-        "_fontSize": 40,
-        "_fontFamily": "Arial",
-        "_lineHeight": 40,
-        "_overflow": 0,
-        "_enableWrapText": true,
-        "_font": null,
-        "_isSystemFontUsed": true,
-        "_spacingX": 0,
-        "_isItalic": false,
-        "_isBold": false,
-        "_isUnderline": false,
-        "_underlineHeight": 2,
-        "_cacheMode": 0,
         "_id": generateId()
     };
 }
@@ -439,42 +464,66 @@ function cmdAdd(sessionId, parentRef, nodeName, options) {
     let compIndex = null;
     if (options.type === 'sprite') {
         compIndex = data.length;
-        data.push(createSpriteComponent(newNodeIndex));
+        data.push(Components.sprite(newNodeIndex));
         newNode._components.push({ "__id__": compIndex });
     } else if (options.type === 'label') {
         compIndex = data.length;
-        data.push(createLabelComponent(newNodeIndex));
+        data.push(Components.label(newNodeIndex));
+        newNode._components.push({ "__id__": compIndex });
+    } else if (options.type === 'button') {
+        compIndex = data.length;
+        data.push(Components.button(newNodeIndex));
+        newNode._components.push({ "__id__": compIndex });
+    } else if (options.type === 'layout') {
+        compIndex = data.length;
+        data.push(Components.layout(newNodeIndex));
+        newNode._components.push({ "__id__": compIndex });
+    } else if (options.type === 'widget') {
+        compIndex = data.length;
+        data.push(Components.widget(newNodeIndex));
+        newNode._components.push({ "__id__": compIndex });
+    } else if (options.type === 'particle') {
+        compIndex = data.length;
+        data.push(Components.particleSystem(newNodeIndex));
         newNode._components.push({ "__id__": compIndex });
     }
     
     // 更新父节点的 _children
     if (!parentNode._children) parentNode._children = [];
     
-    if (options.at >= 0 && options.at < parentNode._children.length) {
-        parentNode._children.splice(options.at, 0, { "__id__": newNodeIndex });
+    const insertPosition = options.at >= 0 ? options.at : parentNode._children.length;
+    if (insertPosition < parentNode._children.length) {
+        parentNode._children.splice(insertPosition, 0, { "__id__": newNodeIndex });
     } else {
         parentNode._children.push({ "__id__": newNodeIndex });
     }
     
-    // 更新映射
-    session.idMap[newNode._id] = newNodeIndex;
-    session.indexMap[newNodeIndex] = {
-        _id: newNode._id,
-        name: nodeName,
-        path: session.indexMap[parentIndex].path + '/' + nodeName,
-        type: 'cc.Node'
-    };
+    // 重新排列数组以匹配 _children 顺序
+    session.data = reorderArrayToMatchChildren(data);
+    
+    // 重建映射
+    const maps = buildMaps(session.data);
+    session.idMap = maps.idMap;
+    session.indexMap = maps.indexMap;
+    
+    // 找到新节点的位置
+    let actualNewIndex = -1;
+    for (const [idx, info] of Object.entries(session.indexMap)) {
+        if (info.name === nodeName) {
+            actualNewIndex = parseInt(idx);
+            break;
+        }
+    }
     
     // 保存会话
     saveSession(sessionPath, session);
     
     console.log(JSON.stringify({
         success: true,
-        index: newNodeIndex,
+        index: actualNewIndex,
         _id: newNode._id,
         name: nodeName,
         parentIndex,
-        componentIndex: compIndex,
         message: `节点 "${nodeName}" 已添加到 ${parentNode._name}`
     }, null, 2));
 }
