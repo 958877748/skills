@@ -392,9 +392,22 @@ function cmdGet(sessionId, nodeIndex) {
     }
     
     const session = validation.session;
-    const idx = parseInt(nodeIndex);
     
-    if (isNaN(idx) || idx < 0 || idx >= session.data.length) {
+    // 支持按索引或名称查找
+    let idx = null;
+    if (/^\d+$/.test(nodeIndex)) {
+        idx = parseInt(nodeIndex);
+    } else {
+        // 按名称查找
+        for (const [i, info] of Object.entries(session.indexMap)) {
+            if (info.name === nodeIndex) {
+                idx = parseInt(i);
+                break;
+            }
+        }
+    }
+    
+    if (idx === null || idx < 0 || idx >= session.data.length) {
         console.log(JSON.stringify({ error: `无效的节点索引: ${nodeIndex}` }));
         return;
     }
@@ -835,6 +848,208 @@ function cmdSet(sessionId, nodeRef, options) {
         changes.zIndex = { from: oldZIndex, to: options.zIndex };
     }
     
+    // ===== 组件属性修改 =====
+    // 查找节点的组件
+    const componentChanges = {};
+    
+    if (node._components && node._components.length > 0) {
+        // 遍历所有组件
+        for (let compIdx = 0; compIdx < node._components.length; compIdx++) {
+            const compRef = node._components[compIdx];
+            const compIndex = compRef.__id__;
+            const comp = data[compIndex];
+            
+            if (!comp) continue;
+            
+            const compType = comp.__type__;
+            
+            // Label 组件
+            if (compType === 'cc.Label') {
+                if (options._string !== undefined) {
+                    const oldValue = comp._string;
+                    comp._string = options._string;
+                    comp._N$string = options._string;
+                    componentChanges._string = { from: oldValue, to: options._string };
+                }
+                if (options._fontSize !== undefined) {
+                    const oldValue = comp._fontSize;
+                    comp._fontSize = options._fontSize;
+                    componentChanges._fontSize = { from: oldValue, to: options._fontSize };
+                }
+                if (options._lineHeight !== undefined) {
+                    const oldValue = comp._lineHeight;
+                    comp._lineHeight = options._lineHeight;
+                    componentChanges._lineHeight = { from: oldValue, to: options._lineHeight };
+                }
+                if (options._N$horizontalAlign !== undefined) {
+                    const oldValue = comp._N$horizontalAlign;
+                    comp._N$horizontalAlign = options._N$horizontalAlign;
+                    componentChanges._N$horizontalAlign = { from: oldValue, to: options._N$horizontalAlign };
+                }
+                if (options._N$verticalAlign !== undefined) {
+                    const oldValue = comp._N$verticalAlign;
+                    comp._N$verticalAlign = options._N$verticalAlign;
+                    componentChanges._N$verticalAlign = { from: oldValue, to: options._N$verticalAlign };
+                }
+                if (options._N$overflow !== undefined) {
+                    const oldValue = comp._N$overflow;
+                    comp._N$overflow = options._N$overflow;
+                    componentChanges._N$overflow = { from: oldValue, to: options._N$overflow };
+                }
+                if (options._enableWrapText !== undefined) {
+                    const oldValue = comp._enableWrapText;
+                    comp._enableWrapText = options._enableWrapText;
+                    componentChanges._enableWrapText = { from: oldValue, to: options._enableWrapText };
+                }
+            }
+            
+            // Button 组件
+            if (compType === 'cc.Button') {
+                if (options._N$interactable !== undefined) {
+                    const oldValue = comp._N$interactable;
+                    comp._N$interactable = options._N$interactable;
+                    componentChanges._N$interactable = { from: oldValue, to: options._N$interactable };
+                }
+                if (options._N$transition !== undefined) {
+                    const oldValue = comp._N$transition;
+                    comp._N$transition = options._N$transition;
+                    comp.transition = options._N$transition;
+                    componentChanges._N$transition = { from: oldValue, to: options._N$transition };
+                }
+                if (options.duration !== undefined) {
+                    const oldValue = comp.duration;
+                    comp.duration = options.duration;
+                    componentChanges.duration = { from: oldValue, to: options.duration };
+                }
+                if (options.zoomScale !== undefined) {
+                    const oldValue = comp.zoomScale;
+                    comp.zoomScale = options.zoomScale;
+                    componentChanges.zoomScale = { from: oldValue, to: options.zoomScale };
+                }
+                // 颜色修改
+                if (options._N$normalColor !== undefined) {
+                    const color = parseColor(options._N$normalColor);
+                    if (color) {
+                        comp._N$normalColor = color;
+                        componentChanges._N$normalColor = { to: options._N$normalColor };
+                    }
+                }
+                if (options._N$pressedColor !== undefined) {
+                    const color = parseColor(options._N$pressedColor);
+                    if (color) {
+                        comp._N$pressedColor = color;
+                        comp.pressedColor = color;
+                        componentChanges._N$pressedColor = { to: options._N$pressedColor };
+                    }
+                }
+            }
+            
+            // Sprite 组件
+            if (compType === 'cc.Sprite') {
+                if (options._type !== undefined) {
+                    const oldValue = comp._type;
+                    comp._type = options._type;
+                    componentChanges._type = { from: oldValue, to: options._type };
+                }
+                if (options._sizeMode !== undefined) {
+                    const oldValue = comp._sizeMode;
+                    comp._sizeMode = options._sizeMode;
+                    componentChanges._sizeMode = { from: oldValue, to: options._sizeMode };
+                }
+                if (options._isTrimmedMode !== undefined) {
+                    const oldValue = comp._isTrimmedMode;
+                    comp._isTrimmedMode = options._isTrimmedMode;
+                    componentChanges._isTrimmedMode = { from: oldValue, to: options._isTrimmedMode };
+                }
+            }
+            
+            // Widget 组件
+            if (compType === 'cc.Widget') {
+                if (options._alignFlags !== undefined) {
+                    const oldValue = comp._alignFlags;
+                    comp._alignFlags = options._alignFlags;
+                    componentChanges._alignFlags = { from: oldValue, to: options._alignFlags };
+                }
+                if (options._left !== undefined) {
+                    const oldValue = comp._left;
+                    comp._left = options._left;
+                    componentChanges._left = { from: oldValue, to: options._left };
+                }
+                if (options._right !== undefined) {
+                    const oldValue = comp._right;
+                    comp._right = options._right;
+                    componentChanges._right = { from: oldValue, to: options._right };
+                }
+                if (options._top !== undefined) {
+                    const oldValue = comp._top;
+                    comp._top = options._top;
+                    componentChanges._top = { from: oldValue, to: options._top };
+                }
+                if (options._bottom !== undefined) {
+                    const oldValue = comp._bottom;
+                    comp._bottom = options._bottom;
+                    componentChanges._bottom = { from: oldValue, to: options._bottom };
+                }
+            }
+            
+            // Layout 组件
+            if (compType === 'cc.Layout') {
+                if (options._N$layoutType !== undefined) {
+                    const oldValue = comp._N$layoutType;
+                    comp._N$layoutType = options._N$layoutType;
+                    componentChanges._N$layoutType = { from: oldValue, to: options._N$layoutType };
+                }
+                if (options._resize !== undefined) {
+                    const oldValue = comp._resize;
+                    comp._resize = options._resize;
+                    componentChanges._resize = { from: oldValue, to: options._resize };
+                }
+                if (options._N$paddingLeft !== undefined) {
+                    const oldValue = comp._N$paddingLeft;
+                    comp._N$paddingLeft = options._N$paddingLeft;
+                    componentChanges._N$paddingLeft = { from: oldValue, to: options._N$paddingLeft };
+                }
+                if (options._N$spacingX !== undefined) {
+                    const oldValue = comp._N$spacingX;
+                    comp._N$spacingX = options._N$spacingX;
+                    componentChanges._N$spacingX = { from: oldValue, to: options._N$spacingX };
+                }
+            }
+        }
+    }
+    
+    // 合并组件变化到 changes
+    if (Object.keys(componentChanges).length > 0) {
+        changes.components = componentChanges;
+    }
+    
+    // 辅助函数：解析颜色
+    function parseColor(colorStr) {
+        if (!colorStr) return null;
+        if (typeof colorStr === 'object') return colorStr;
+        
+        let r, g, b, a = 255;
+        
+        if (colorStr.startsWith('#')) {
+            colorStr = colorStr.slice(1);
+            if (colorStr.length === 6) {
+                r = parseInt(colorStr.slice(0, 2), 16);
+                g = parseInt(colorStr.slice(2, 4), 16);
+                b = parseInt(colorStr.slice(4, 6), 16);
+            } else if (colorStr.length === 8) {
+                r = parseInt(colorStr.slice(0, 2), 16);
+                g = parseInt(colorStr.slice(2, 4), 16);
+                b = parseInt(colorStr.slice(4, 6), 16);
+                a = parseInt(colorStr.slice(6, 8), 16);
+            }
+        }
+        
+        if (r !== undefined && g !== undefined && b !== undefined) {
+            return { "__type__": "cc.Color", r, g, b, a };
+        }
+        return null;
+    }
+    
     // 保存会话
     saveSession(sessionPath, session);
     
@@ -882,7 +1097,19 @@ function parseOptions(args) {
     
     args.forEach(arg => {
         if (arg.startsWith('--')) {
-            const [key, value] = arg.substring(2).split('=');
+            let [key, value] = arg.substring(2).split('=');
+            
+            // 解析带值的参数
+            if (value !== undefined) {
+                // 布尔值
+                if (value === 'true') value = true;
+                else if (value === 'false') value = false;
+                // 数字
+                else if (!isNaN(value) && value !== '') value = parseFloat(value);
+            } else {
+                value = true;
+            }
+            
             switch (key) {
                 case 'type': options.type = value; break;
                 case 'x': options.x = parseFloat(value); break;
@@ -892,17 +1119,22 @@ function parseOptions(args) {
                 case 'uuid': options.uuid = value; break;
                 // set 命令选项
                 case 'name': options.name = value; break;
-                case 'active': options.active = value === 'true'; break;
+                case 'active': options.active = value === true || value === 'true'; break;
                 case 'width': options.width = parseFloat(value); break;
                 case 'height': options.height = parseFloat(value); break;
                 case 'anchorX': options.anchorX = parseFloat(value); break;
                 case 'anchorY': options.anchorY = parseFloat(value); break;
-                case 'opacity': options.opacity = parseInt(value); break;
+                case 'opacity': options.opacity = parseFloat(value); break;
                 case 'color': options.color = value; break;
                 case 'rotation': options.rotation = parseFloat(value); break;
                 case 'scaleX': options.scaleX = parseFloat(value); break;
                 case 'scaleY': options.scaleY = parseFloat(value); break;
                 case 'zIndex': options.zIndex = parseInt(value); break;
+                // 组件属性 - 直接添加到 options 对象
+                default:
+                    if (key.startsWith('_')) {
+                        options[key] = value;
+                    }
             }
         }
     });

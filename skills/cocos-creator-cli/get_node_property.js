@@ -37,48 +37,78 @@ function buildUuidMap(cocosDir) {
     uuidToUrlCache = {};
     
     const assetsDir = path.join(cocosDir, 'assets');
-    if (!fs.existsSync(assetsDir)) {
-        return uuidToUrlCache;
-    }
+    const libraryDir = path.join(cocosDir, 'library', 'imports');
     
-    function scanDir(dir, urlPrefix) {
-        const items = fs.readdirSync(dir);
-        
-        for (const item of items) {
-            const fullPath = path.join(dir, item);
-            const stat = fs.statSync(fullPath);
+    // 1. 扫描 assets 目录获取 uuid -> assets 路径
+    if (fs.existsSync(assetsDir)) {
+        function scanDir(dir, urlPrefix) {
+            const items = fs.readdirSync(dir);
             
-            if (stat.isDirectory()) {
-                // 递归扫描子目录
-                scanDir(fullPath, urlPrefix + item + '/');
-            } else if (item.endsWith('.meta')) {
-                // 读取 meta 文件获取 uuid
-                try {
-                    const metaContent = fs.readFileSync(fullPath, 'utf8');
-                    const meta = JSON.parse(metaContent);
-                    
-                    if (meta.uuid) {
-                        // URL 是去掉 .meta 后缀的路径，使用 db://assets/ 前缀
-                        const resourcePath = urlPrefix + item.slice(0, -5); // 去掉 .meta
-                        uuidToUrlCache[meta.uuid] = `db://assets/${resourcePath}`;
+            for (const item of items) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.readdirSync ? fs.statSync(fullPath) : null;
+                if (!stat) continue;
+                
+                if (stat.isDirectory()) {
+                    scanDir(fullPath, urlPrefix + item + '/');
+                } else if (item.endsWith('.meta')) {
+                    try {
+                        const metaContent = fs.readFileSync(fullPath, 'utf8');
+                        const meta = JSON.parse(metaContent);
                         
-                        // 处理 subMetas（如 SpriteFrame）
-                        if (meta.subMetas) {
-                            for (const [subName, subMeta] of Object.entries(meta.subMetas)) {
-                                if (subMeta.uuid) {
-                                    uuidToUrlCache[subMeta.uuid] = `db://assets/${resourcePath}/${subName}`;
-                                }
-                            }
+                        if (meta.uuid) {
+                            const resourcePath = urlPrefix + item.slice(0, -5);
+                            uuidToUrlCache[meta.uuid] = `assets/${resourcePath}`;
                         }
-                    }
-                } catch (err) {
-                    // 忽略解析错误
+                    } catch (err) {}
                 }
             }
         }
+        
+        scanDir(assetsDir, '');
     }
     
-    scanDir(assetsDir, '');
+    // 2. 扫描 library/imports 获取内置资源名称（只填充 assets 中没有的 uuid）
+    if (fs.existsSync(libraryDir)) {
+        function scanLibrary(dir) {
+            const items = fs.readdirSync(dir);
+            
+            for (const item of items) {
+                const fullPath = path.join(dir, item);
+                const stat = fs.readdirSync ? fs.statSync(fullPath) : null;
+                if (!stat) continue;
+                
+                if (stat.isDirectory()) {
+                    scanLibrary(fullPath);
+                } else if (item.endsWith('.json')) {
+                    try {
+                        const content = fs.readFileSync(fullPath, 'utf8');
+                        const data = JSON.parse(content);
+                        
+                        // 从文件名获取 uuid
+                        const uuid = item.replace('.json', '');
+                        
+                        // 只填充还没有路径的 uuid（即内置资源）
+                        if (!uuidToUrlCache[uuid]) {
+                            let name = null;
+                            if (data.name) {
+                                name = data.name;
+                            } else if (data.content && data.content.name) {
+                                name = data.content.name;
+                            }
+                            
+                            if (name) {
+                                uuidToUrlCache[uuid] = name;
+                            }
+                        }
+                    } catch (err) {}
+                }
+            }
+        }
+        
+        scanLibrary(libraryDir);
+    }
+    
     return uuidToUrlCache;
 }
 
@@ -86,13 +116,13 @@ function buildUuidMap(cocosDir) {
  * 根据 uuid 获取 URL
  * @param {string} uuid - 资源 uuid
  * @param {string} cocosDir - cocos 项目根目录
- * @returns {string} URL 或原始 uuid
+ * @returns {string} URL 或 null
  */
 function uuidToUrl(uuid, cocosDir) {
     if (!uuid) return uuid;
     
     const map = buildUuidMap(cocosDir);
-    return map[uuid] || `uuid:${uuid}`;
+    return map[uuid] || null;
 }
 
 /**
@@ -411,7 +441,13 @@ function formatComponentInfo(comp, scriptMap = {}, cocosDir = null) {
     else if (type === 'sprite') {
         result.component.sizeMode = comp._sizeMode ?? 0;
         result.component.type = comp._type ?? 0;
-        result.component.spriteFrame = comp._spriteFrame?.__uuid__ || comp._spriteFrame || null;
+        const spriteFrameUuid = comp._spriteFrame?.__uuid__ || comp._spriteFrame;
+        if (spriteFrameUuid) {
+            const url = cocosDir ? uuidToUrl(spriteFrameUuid, cocosDir) : null;
+            result.component.spriteFrame = url || (spriteFrameUuid.includes('-') ? `assets/${spriteFrameUuid}` : spriteFrameUuid);
+        } else {
+            result.component.spriteFrame = null;
+        }
         result.component.trim = comp._isTrimmedMode ?? true;
     }
     // cc.Label
@@ -423,13 +459,108 @@ function formatComponentInfo(comp, scriptMap = {}, cocosDir = null) {
         result.component.verticalAlign = comp._verticalAlign ?? 0;
         result.component.overflow = comp._overflow ?? 0;
         result.component.enableWrapText = comp._enableWrapText ?? true;
-        result.component.font = comp._font?.__uuid__ || comp._font || null;
+        const fontUuid = comp._font?.__uuid__ || comp._font;
+        if (fontUuid) {
+            const url = cocosDir ? uuidToUrl(fontUuid, cocosDir) : null;
+            result.component.font = url || (fontUuid.includes('-') ? `assets/${fontUuid}` : fontUuid);
+        } else {
+            result.component.font = null;
+        }
     }
     // cc.Button
     else if (type === 'button') {
-        result.component.interactable = comp.interactable ?? true;
-        result.component.transition = comp._transition ?? 0;
-        result.component.target = comp._target?.__id__ !== undefined ? `node #${comp._target.__id__}` : null;
+        result.component.interactable = comp._N$interactable ?? true;
+        result.component.transition = comp._N$transition ?? 0;
+        result.component.duration = comp.duration ?? 0.1;
+        result.component.zoomScale = comp.zoomScale ?? 1.2;
+        result.component.enableAutoGrayEffect = comp._N$enableAutoGrayEffect ?? false;
+        
+        // Colors
+        if (comp._N$normalColor) {
+            result.component.normalColor = colorToHex(comp._N$normalColor);
+        }
+        if (comp._N$pressedColor) {
+            result.component.pressedColor = colorToHex(comp._N$pressedColor);
+        }
+        if (comp._N$hoverColor) {
+            result.component.hoverColor = colorToHex(comp._N$hoverColor);
+        }
+        if (comp._N$disabledColor) {
+            result.component.disabledColor = colorToHex(comp._N$disabledColor);
+        }
+        
+        // Sprites
+        const normalSpriteUuid = comp._N$normalSprite?.__uuid__;
+        if (normalSpriteUuid) {
+            const url = cocosDir ? uuidToUrl(normalSpriteUuid, cocosDir) : null;
+            result.component.normalSprite = url || normalSpriteUuid;
+        }
+        const pressedSpriteUuid = comp._N$pressedSprite?.__uuid__;
+        if (pressedSpriteUuid) {
+            const url = cocosDir ? uuidToUrl(pressedSpriteUuid, cocosDir) : null;
+            result.component.pressedSprite = url || pressedSpriteUuid;
+        }
+        const hoverSpriteUuid = comp._N$hoverSprite?.__uuid__;
+        if (hoverSpriteUuid) {
+            const url = cocosDir ? uuidToUrl(hoverSpriteUuid, cocosDir) : null;
+            result.component.hoverSprite = url || hoverSpriteUuid;
+        }
+        const disabledSpriteUuid = comp._N$disabledSprite?.__uuid__;
+        if (disabledSpriteUuid) {
+            const url = cocosDir ? uuidToUrl(disabledSpriteUuid, cocosDir) : null;
+            result.component.disabledSprite = url || disabledSpriteUuid;
+        }
+        
+        // Target
+        if (comp._N$target) {
+            result.component.target = `node #${comp._N$target.__id__}`;
+        } else {
+            result.component.target = null;
+        }
+    }
+    // cc.Layout
+    else if (type === 'layout') {
+        result.component.layoutType = comp._N$layoutType ?? 0;
+        result.component.resizeMode = comp._resize ?? 0;
+        result.component.startAxis = comp._N$startAxis ?? 0;
+        result.component.paddingLeft = comp._N$paddingLeft ?? 0;
+        result.component.paddingRight = comp._N$paddingRight ?? 0;
+        result.component.paddingTop = comp._N$paddingTop ?? 0;
+        result.component.paddingBottom = comp._N$paddingBottom ?? 0;
+        result.component.spacingX = comp._N$spacingX ?? 0;
+        result.component.spacingY = comp._N$spacingY ?? 0;
+        result.component.verticalDirection = comp._N$verticalDirection ?? 1;
+        result.component.horizontalDirection = comp._N$horizontalDirection ?? 0;
+        result.component.affectedByScale = comp._N$affectedByScale ?? false;
+        
+        // Layout Size
+        if (comp._layoutSize) {
+            result.component.layoutSize = { width: comp._layoutSize.width, height: comp._layoutSize.height };
+        }
+        // Cell Size
+        if (comp._N$cellSize) {
+            result.component.cellSize = { width: comp._N$cellSize.width, height: comp._N$cellSize.height };
+        }
+    }
+    // cc.Widget
+    else if (type === 'widget') {
+        result.component.alignMode = comp.alignMode ?? 0;
+        
+        // Alignment flags
+        const flags = comp._alignFlags ?? 0;
+        result.component.isAlignTop = (flags & 1) !== 0;
+        result.component.isAlignBottom = (flags & 2) !== 0;
+        result.component.isAlignLeft = (flags & 4) !== 0;
+        result.component.isAlignRight = (flags & 8) !== 0;
+        result.component.isAlignHorizontalCenter = (flags & 16) !== 0;
+        result.component.isAlignVerticalCenter = (flags & 32) !== 0;
+        
+        result.component.top = comp._top ?? 0;
+        result.component.bottom = comp._bottom ?? 0;
+        result.component.left = comp._left ?? 0;
+        result.component.right = comp._right ?? 0;
+        result.component.horizontalCenter = comp._horizontalCenter ?? 0;
+        result.component.verticalCenter = comp._verticalCenter ?? 0;
     }
     // 自定义组件 - 提取所有非内部属性
     else {
@@ -448,7 +579,14 @@ function formatComponentInfo(comp, scriptMap = {}, cocosDir = null) {
             if (value === null || value === undefined) {
                 continue;
             } else if (typeof value === 'object' && value.__uuid__) {
-                result.component[key] = cocosDir ? uuidToUrl(value.__uuid__, cocosDir) : `uuid:${value.__uuid__}`;
+                const url = cocosDir ? uuidToUrl(value.__uuid__, cocosDir) : null;
+                if (url) {
+                    result.component[key] = url;
+                } else if (value.__uuid__.includes('-')) {
+                    result.component[key] = `assets/${value.__uuid__}`;
+                } else {
+                    result.component[key] = `uuid:${value.__uuid__}`;
+                }
             } else if (typeof value === 'object' && value.__id__ !== undefined) {
                 result.component[key] = `ref:#${value.__id__}`;
             } else if (typeof value === 'object' && value.__type__ === 'cc.Color') {

@@ -3,9 +3,6 @@
  * 从编辑器导出的默认组件属性
  */
 
-const fs = require('fs');
-const path = require('path');
-
 function generateId() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     let result = '';
@@ -113,9 +110,9 @@ const Components = {
         "transition": 3,
         "_N$normalColor": {
             "__type__": "cc.Color",
-            "r": 230,
-            "g": 230,
-            "b": 230,
+            "r": 255,
+            "g": 255,
+            "b": 255,
             "a": 255
         },
         "_N$pressedColor": {
@@ -174,8 +171,8 @@ const Components = {
             "width": 200,
             "height": 150
         },
-        "_resize": 0,
-        "_N$layoutType": 0,
+        "_resize": 1,
+        "_N$layoutType": 2,
         "_N$cellSize": {
             "__type__": "cc.Size",
             "width": 40,
