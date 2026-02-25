@@ -1,0 +1,150 @@
+# Skills 定义 - Agent 的技能库
+# 每个 skill 代表一个 Agent 能做什么
+skills:
+  # 前端开发技能
+  frontend-dev:
+    name: Frontend Developer
+    description: 开发网页前端界面
+    tools:
+      - react
+      - vue
+      - tailwind
+      - html-css
+    agents:
+      - agent-code
+      - agent-file
+
+  # 后端开发技能
+  backend-dev:
+    name: Backend Developer
+    description: 开发服务器端 API 和数据库
+    tools:
+      - nodejs
+      - python
+      - database
+      - api-design
+    agents:
+      - agent-code
+      - agent-db
+
+  # 浏览器测试技能
+  browser-test:
+    name: Browser Tester
+    description: 使用浏览器自动化测试网页
+    tools:
+      - playwright
+      - puppeteer
+      - browser-automation
+    agents:
+      - agent-browser
+      - agent-playwright
+
+  # 代码审查技能
+  code-review:
+    name: Code Reviewer
+    description: 审查代码质量和安全性
+    tools:
+      - static-analysis
+      - lint
+      - security-scan
+    agents:
+      - agent-lint
+
+  # 测试技能
+  testing:
+    name: QA Tester
+    description: 编写和运行测试
+    tools:
+      - jest
+      - cypress
+      - unit-test
+      - integration-test
+    agents:
+      - agent-test
+
+
+# Flows 定义 - 工作流程规则
+# 编排多个 agents 完成项目
+flows:
+  # 开发网站的完整流程
+  website-development:
+    name: 网站开发流程
+    description: 从需求到上线的完整网站开发流程
+    version: "1.0"
+    
+    # 阶段定义
+    stages:
+      - name: 需求分析
+        agents:
+          - role: requirement-analyzer
+            skills: [frontend-dev, backend-dev]
+            task: 分析需求，生成规格文档
+        
+      - name: 项目初始化
+        agents:
+          - role: project-setup
+            skills: [frontend-dev, backend-dev]
+            task: 初始化项目结构，配置开发环境
+        
+      - name: 前端开发
+        agents:
+          - role: frontend-developer
+            skills: [frontend-dev]
+            task: 开发前端页面和组件
+        
+      - name: 后端开发
+        agents:
+          - role: backend-developer
+            skills: [backend-dev]
+            task: 开发 API 接口和数据库模型
+        
+      - name: 代码审查
+        agents:
+          - role: code-reviewer
+            skills: [code-review]
+            task: 审查代码质量，提交审查报告
+        
+      - name: 测试
+        agents:
+          - role: browser-tester
+            skills: [browser-test]
+            task: 使用浏览器自动化测试网页功能
+          - role: qa-tester
+            skills: [testing]
+            task: 运行单元测试和集成测试
+        
+      - name: 部署
+        agents:
+          - role: devops
+            skills: [backend-dev]
+            task: 部署应用到服务器
+    
+    # 执行规则
+    rules:
+      # 阶段执行顺序
+      sequence: sequential
+      
+      # 是否允许并行执行
+      parallel: false
+      
+      # 失败策略
+      on_failure:
+        action: stop
+        rollback: true
+      
+      # 通过条件
+      approval_required: false
+
+
+# 流程执行示例
+examples:
+  website-development:
+    input: 开发一个电商网站
+    expected_stages:
+      - 需求分析
+      - 项目初始化
+      - 前端开发
+      - 后端开发
+      - 代码审查
+      - 测试
+      - 部署
