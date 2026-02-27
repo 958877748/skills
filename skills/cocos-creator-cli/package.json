@@ -1,0 +1,29 @@
+{
+  "name": "cocos-creator-cli",
+  "version": "1.0.0",
+  "description": "Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes",
+  "main": "src/lib/index.js",
+  "bin": {
+    "cocos-cli": "./bin/cocos-cli.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "data"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cocos",
+    "cocos-creator",
+    "cli",
+    "scene",
+    "fire"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

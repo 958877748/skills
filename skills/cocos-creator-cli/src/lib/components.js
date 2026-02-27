@@ -15,7 +15,6 @@ function generateId() {
 const DEFAULT_MATERIAL = { "__uuid__": "eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432" };
 const DEFAULT_SPRITE_FRAME = { "__uuid__": "8cdb44ac-a3f6-449f-b354-7cd48cf84061" };
 const SPLASH_SPRITE_FRAME = { "__uuid__": "a23235d1-15db-4b95-8439-a2e005bfff91" };
-const LAYOUT_SPRITE_FRAME = { "__uuid__": "9bbda31e-ad49-43c9-aaf2-f7d9896bac69" };
 const BUTTON_NORMAL_SPRITE = { "__uuid__": "f0048c10-f03e-4c97-b9d3-3506e1d58952" };
 const BUTTON_PRESSED_SPRITE = { "__uuid__": "e9ec654c-97a2-4787-9325-e6a10375219a" };
 const BUTTON_DISABLED_SPRITE = { "__uuid__": "29158224-f8dd-4661-a796-1ffab537140e" };
@@ -35,27 +34,6 @@ const Components = {
         "_spriteFrame": DEFAULT_SPRITE_FRAME,
         "_type": 0,
         "_sizeMode": 1,
-        "_fillType": 0,
-        "_fillCenter": { "__type__": "cc.Vec2", "x": 0, "y": 0 },
-        "_fillStart": 0,
-        "_fillRange": 0,
-        "_isTrimmedMode": true,
-        "_atlas": null,
-        "_id": generateId()
-    }),
-
-    spriteSplash: (nodeId) => ({
-        "__type__": "cc.Sprite",
-        "_name": "",
-        "_objFlags": 0,
-        "node": { "__id__": nodeId },
-        "_enabled": true,
-        "_materials": [DEFAULT_MATERIAL],
-        "_srcBlendFactor": 770,
-        "_dstBlendFactor": 771,
-        "_spriteFrame": SPLASH_SPRITE_FRAME,
-        "_type": 0,
-        "_sizeMode": 0,
         "_fillType": 0,
         "_fillCenter": { "__type__": "cc.Vec2", "x": 0, "y": 0 },
         "_fillStart": 0,
@@ -363,4 +341,64 @@ const Components = {
     })
 };
 
-module.exports = { Components, generateId };
+/**
+ * 创建默认节点数据
+ */
+function createNodeData(name, parentId, options = {}) {
+    return {
+        "__type__": "cc.Node",
+        "_name": name,
+        "_objFlags": 0,
+        "_parent": { "__id__": parentId },
+        "_children": [],
+        "_active": options.active !== false,
+        "_components": [],
+        "_prefab": null,
+        "_opacity": 255,
+        "_color": {
+            "__type__": "cc.Color",
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 255
+        },
+        "_contentSize": {
+            "__type__": "cc.Size",
+            "width": options.width || 0,
+            "height": options.height || 0
+        },
+        "_anchorPoint": {
+            "__type__": "cc.Vec2",
+            "x": 0.5,
+            "y": 0.5
+        },
+        "_trs": {
+            "__type__": "TypedArray",
+            "ctor": "Float64Array",
+            "array": [
+                options.x || 0,
+                options.y || 0,
+                0, 0, 0, 0, 1,
+                1, 1, 1
+            ]
+        },
+        "_eulerAngles": {
+            "__type__": "cc.Vec3",
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "_skewX": 0,
+        "_skewY": 0,
+        "_is3DNode": false,
+        "_groupIndex": 0,
+        "groupIndex": 0,
+        "_id": generateId()
+    };
+}
+
+module.exports = {
+    Components,
+    generateId,
+    createNodeData
+};

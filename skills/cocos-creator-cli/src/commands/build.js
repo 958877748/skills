@@ -1,21 +1,25 @@
 /**
- * 从编译后的 JS 文件中构建脚本哈希映射
- * 用于更新 fire_reader.js 中的脚本映射表
- * 
- * 用法：
- * node build_script_map.js
+ * build 命令 - 构建组件映射
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const IMPORTS_DIR = path.join(__dirname, '../cocos/library/imports');
-const OUTPUT_FILE = path.join(__dirname, 'script_map.json');
-
-/**
- * 扫描 imports 目录，查找所有 JS 文件中的 _RF.push 调用
- */
-function buildScriptMap() {
+function run(args) {
+    if (args.length < 1) {
+        console.log(JSON.stringify({ error: '用法: cocos-cli build <项目目录>' }));
+        return;
+    }
+    
+    const projectDir = args[0];
+    const importsDir = path.join(projectDir, 'library', 'imports');
+    const outputFile = path.join(__dirname, '../../data/script_map.json');
+    
+    if (!fs.existsSync(importsDir)) {
+        console.log(JSON.stringify({ error: `imports 目录不存在: ${importsDir}` }));
+        return;
+    }
+    
     const scriptMap = {};
     let processedCount = 0;
     
@@ -52,35 +56,23 @@ function buildScriptMap() {
         }
     }
     
-    console.log('扫描 imports 目录...');
-    scanDirectory(IMPORTS_DIR);
+    scanDirectory(importsDir);
     
-    console.log(`找到 ${Object.keys(scriptMap).length} 个脚本哈希映射`);
-    
-    // 写入输出文件
-    const output = JSON.stringify(scriptMap, null, 2);
-    fs.writeFileSync(OUTPUT_FILE, output, 'utf8');
-    
-    console.log(`映射表已保存到: ${OUTPUT_FILE}`);
-    
-    // 显示一些示例
-    console.log('\n示例映射:');
-    const entries = Object.entries(scriptMap).slice(0, 10);
-    entries.forEach(([hash, className]) => {
-        console.log(`  ${hash} -> ${className}`);
-    });
-    
-    if (Object.keys(scriptMap).length > 10) {
-        console.log(`  ... 还有 ${Object.keys(scriptMap).length - 10} 个`);
+    // 确保输出目录存在
+    const outputDir = path.dirname(outputFile);
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
     }
     
-    return scriptMap;
+    // 写入输出文件
+    fs.writeFileSync(outputFile, JSON.stringify(scriptMap, null, 2), 'utf8');
+    
+    console.log(JSON.stringify({
+        success: true,
+        count: Object.keys(scriptMap).length,
+        outputFile,
+        message: `构建完成，共 ${Object.keys(scriptMap).length} 个脚本映射`
+    }, null, 2));
 }
 
-// 主程序
-try {
-    buildScriptMap();
-} catch (err) {
-    console.error('错误:', err.message);
-    process.exit(1);
-}
+module.exports = { run };
