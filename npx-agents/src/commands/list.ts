@@ -15,7 +15,7 @@ export async function listCommand(options: ListCommandOptions): Promise<void> {
   if (options.agent) {
     platforms = [options.agent as AgentPlatform];
   } else {
-    platforms = detectPlatforms();
+    platforms = ['opencode'];
   }
 
   const scope = options.global ? 'global' : 'project';

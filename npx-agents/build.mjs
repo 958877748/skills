@@ -17,8 +17,10 @@ async function build() {
     bundle: true,
     platform: 'node',
     format: 'esm',
-    outdir: join(__dirname, 'dist'),
-    external: ['./node_modules/*'],
+    outfile: join(__dirname, 'dist/index.js'),
+    banner: {
+      js: 'import { createRequire } from "module";const require = createRequire(import.meta.url);'
+    },
     sourcemap: true,
     minify: false,
   });

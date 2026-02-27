@@ -21,7 +21,7 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     if (options.agent && options.agent.length > 0) {
       platforms = options.agent as AgentPlatform[];
     } else {
-      platforms = detectPlatforms();
+      platforms = ['opencode'];
     }
 
     const installOptions: InstallOptions = {
