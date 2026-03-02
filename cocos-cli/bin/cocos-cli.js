@@ -24,7 +24,7 @@ function showHelp() {
 Cocos Creator CLI - 场景操作工具集
 
 用法:
-  cocos-cli <command> [options]
+  cocos2.4 <command> [options]
 
 命令:
   open <scene.fire>              打开会话
@@ -42,14 +42,14 @@ Cocos Creator CLI - 场景操作工具集
   3. close → 保存场景，关闭会话
 
 示例:
-  cocos-cli open assets/main.fire
-  cocos-cli tree --session=a0e9c696
-  cocos-cli add Canvas Sprite --session=a0e9c696 --type=sprite --x=100
-  cocos-cli set Canvas/Sprite --session=a0e9c696 --x=200 --opacity=128
-  cocos-cli delete OldNode --session=a0e9c696
-  cocos-cli close --session=a0e9c696
+  cocos2.4 open assets/main.fire
+  cocos2.4 tree --session=a0e9c696
+  cocos2.4 add Canvas Sprite --session=a0e9c696 --type=sprite --x=100
+  cocos2.4 set Canvas/Sprite --session=a0e9c696 --x=200 --opacity=128
+  cocos2.4 delete OldNode --session=a0e9c696
+  cocos2.4 close --session=a0e9c696
 
-版本: 1.0.0
+版本: 1.0.1
 `);
 }
 
