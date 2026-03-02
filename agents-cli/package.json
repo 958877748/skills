@@ -1,6 +1,6 @@
 {
   "name": "opencode-agents",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "CLI for managing AI coding agents",
   "type": "module",
   "bin": {

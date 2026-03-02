@@ -9,9 +9,9 @@ const __dirname = dirname(__filename);
 
 const distPath = join(__dirname, '..', 'dist', 'index.js');
 
-const child = spawn('node', [distPath], {
-  stdio: 'inherit',
-  shell: true
+const args = process.argv.slice(2);
+const child = spawn('node', [distPath, ...args], {
+  stdio: 'inherit'
 });
 
 child.on('exit', (code) => {
