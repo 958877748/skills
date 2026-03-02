@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import chalk from 'chalk';
+import pc from 'picocolors';
 import { addCommand } from './commands/add.js';
 import { listCommand } from './commands/list.js';
 import { removeCommand } from './commands/remove.js';
@@ -9,18 +9,19 @@ import { initCommand } from './commands/init.js';
 import { findCommand } from './commands/find.js';
 import { checkCommand } from './commands/check.js';
 import { updateCommand } from './commands/update.js';
+import { showBanner } from './utils/ui.js';
 
 const program = new Command();
 
 program
   .name('agents')
   .description('CLI for managing AI coding agents')
-  .version('1.0.0');
+  .version('1.1.0');
 
 program
   .command('add <source>')
   .description('Install one or more agents from a GitHub repository or local path')
-  .option('-g, --global', 'Install to global directory', false)
+  .option('-g, --global', 'Install to global directory')
   .option('-a, --agent <agents...>', 'Target agent platform(s)')
   .option('--agent-name <name>', 'Name for the installed agent')
   .option('-y, --yes', 'Skip confirmation', false)
@@ -29,6 +30,7 @@ program
 
 program
   .command('list')
+  .alias('ls')
   .description('List installed agents')
   .option('-g, --global', 'List only global agents')
   .option('-a, --agent <agent>', 'Filter by platform')
@@ -60,5 +62,11 @@ program
   .command('update')
   .description('Update all installed agents to the latest version')
   .action(updateCommand);
+
+// 显示 banner 如果没有参数
+if (process.argv.length === 2) {
+  showBanner();
+  program.help();
+}
 
 program.parse();

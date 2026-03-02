@@ -47,26 +47,13 @@ export async function installAgent(options: InstallOptions): Promise<void> {
             continue;
           }
 
-          if (copy) {
-            const sourcePath = agentFile.path;
-            if (isDirectory(sourcePath)) {
-              copyDirectory(sourcePath, join(targetPath, name));
-            } else {
-              copyFileSync(sourcePath, finalPath);
-            }
-            logger.success(`Copied agent "${name}" to ${finalPath}`);
+          const sourcePath = agentFile.path;
+          if (isDirectory(sourcePath)) {
+            copyDirectory(sourcePath, join(targetPath, name));
           } else {
-            const sourcePath = agentFile.path;
-            const linkType = isDirectory(sourcePath) ? 'dir' : 'file';
-            try {
-              symlinkSync(sourcePath, finalPath, linkType);
-              logger.success(`Symlinked agent "${name}" to ${finalPath}`);
-            } catch (err) {
-              logger.warn(`Failed to create symlink, copying instead: ${err}`);
-              copyDirectory(sourcePath, join(targetPath, name));
-              logger.success(`Copied agent "${name}" to ${targetPath}`);
-            }
+            copyFileSync(sourcePath, finalPath);
           }
+          logger.success(`Copied agent "${name}" to ${finalPath}`);
         }
       }
     }

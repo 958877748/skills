@@ -1,13 +1,14 @@
-import ora from 'ora';
-import inquirer from 'inquirer';
+import * as p from '@clack/prompts';
+import pc from 'picocolors';
 import { tmpdir } from 'os';
 import { existsSync, rmSync } from 'fs';
 import { installAgent } from '../core/installer.js';
 import { discoverFromDirectory } from '../core/discover.js';
-import { detectPlatforms } from '../utils/filesystem.js';
-import { logger } from '../utils/logger.js';
 import type { AgentPlatform, InstallOptions, AgentFile } from '../types/index.js';
-import { basename } from 'path';
+import { basename, join } from 'path';
+import { mkdtempSync } from 'fs';
+import degit from 'degit';
+import { showLogo, renderTree, renderSkillCard, success, error } from '../utils/ui.js';
 
 interface AddCommandOptions {
   global: boolean | undefined;
@@ -18,44 +19,44 @@ interface AddCommandOptions {
 }
 
 async function promptInstallLocation(): Promise<boolean> {
-  const answers = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'scope',
-      message: 'Where would you like to install this agent?',
-      choices: [
-        { name: 'Current project (./.opencode/agents/)', value: false },
-        { name: 'Global (~/.config/opencode/agents/)', value: true },
-      ],
-      default: 0,
-    },
-  ]);
-  return answers.scope;
+  const location = await p.select({
+    message: 'Where would you like to install this agent?',
+    options: [
+      { value: false, label: 'Current project', hint: './.opencode/agents/' },
+      { value: true, label: 'Global', hint: '~/.config/opencode/agents/' },
+    ],
+  });
+
+  if (p.isCancel(location)) {
+    p.cancel('Operation cancelled');
+    process.exit(0);
+  }
+
+  return location;
 }
 
 async function promptSelectAgents(agents: AgentFile[]): Promise<AgentFile[]> {
-  const choices = agents.map(agent => ({
-    name: agent.agent.name || basename(agent.path, '.md'),
+  const options = agents.map(agent => ({
     value: agent,
-    checked: false,
+    label: agent.agent.name || basename(agent.path, '.md'),
+    hint: agent.agent.description?.slice(0, 50) + '...',
   }));
 
-  const answers = await inquirer.prompt([
-    {
-      type: 'checkbox',
-      name: 'selected',
-      message: 'Select agents to install (space to select, enter to confirm):',
-      choices,
-    },
-  ]);
+  const selected = await p.multiselect({
+    message: 'Select agents to install (space to select, enter to confirm):',
+    options,
+    required: true,
+  });
 
-  return answers.selected;
+  if (p.isCancel(selected)) {
+    p.cancel('Operation cancelled');
+    process.exit(0);
+  }
+
+  return selected as AgentFile[];
 }
 
 async function fetchSource(source: string): Promise<string> {
-  const { mkdtempSync, join } = await import('path');
-  const degit = await import('degit');
-
   const tempDir = mkdtempSync(join(tmpdir(), 'agents-cli-'));
 
   const parts = source.split('/');
@@ -71,7 +72,7 @@ async function fetchSource(source: string): Promise<string> {
 
   try {
     const target = ref ? `${owner}/${repo}#${ref}` : `${owner}/${repo}`;
-    await degit.default(target).clone(tempDir);
+    await degit(target).clone(tempDir);
     return tempDir;
   } catch (err) {
     rmSync(tempDir, { recursive: true, force: true });
@@ -80,39 +81,49 @@ async function fetchSource(source: string): Promise<string> {
 }
 
 export async function addCommand(source: string, options: AddCommandOptions): Promise<void> {
+  console.clear();
+  showLogo();
+
   let isGlobal = options.global;
 
   if (isGlobal === undefined) {
     isGlobal = await promptInstallLocation();
   }
 
-  const fetchSpinner = ora('Fetching source...').start();
-
+  // 步骤 1: 获取源码
+  p.log.step(pc.cyan(`Source: ${pc.dim(`https://github.com/${source}.git`)}`));
+  
+  const s = p.spinner();
+  s.start('Cloning repository...');
+  
   let tempDir: string;
   try {
     tempDir = await fetchSource(source);
-    fetchSpinner.succeed('Source fetched');
+    s.stop('Repository cloned');
   } catch (err) {
-    fetchSpinner.fail(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
-    logger.error(String(err));
+    s.stop('Failed to clone repository');
+    error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 
-  const discoverSpinner = ora('Discovering agents...').start();
+  // 步骤 2: 发现 agents
+  s.start('Discovering agents...');
   let agents: AgentFile[];
   try {
     agents = await discoverFromDirectory(tempDir);
-    discoverSpinner.succeed(`Found ${agents.length} agent(s)`);
+    s.stop(`Found ${pc.green(String(agents.length))} agent(s)`);
   } catch (err) {
-    discoverSpinner.fail(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
+    s.stop('Failed to discover agents');
+    error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 
   if (agents.length === 0) {
-    logger.error('No agents found in the source');
+    error('No agents found in the source');
     process.exit(1);
   }
 
+  // 步骤 3: 选择 agents
   let selectedAgents: AgentFile[];
   if (options.yes) {
     selectedAgents = agents;
@@ -121,11 +132,22 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
   }
 
   if (selectedAgents.length === 0) {
-    logger.warn('No agents selected, aborting');
+    p.cancel('No agents selected, aborting');
     process.exit(0);
   }
 
-  const installSpinner = ora('Installing agent(s)...').start();
+  // 显示选中的 agents
+  console.log();
+  for (const agent of selectedAgents) {
+    renderSkillCard(
+      agent.agent.name || basename(agent.path, '.md'),
+      agent.agent.description || 'No description available',
+      0
+    );
+  }
+
+  // 步骤 4: 安装
+  s.start(`Installing ${selectedAgents.length} agent(s)...`);
 
   try {
     let platforms: AgentPlatform[];
@@ -149,10 +171,17 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
 
     await installAgent(installOptions);
 
-    installSpinner.succeed(`Successfully installed ${selectedAgents.length} agent(s)`);
+    s.stop(pc.green(`Successfully installed ${selectedAgents.length} agent(s)`));
+    
+    console.log();
+    success('Installation complete!');
+    console.log();
+    console.log(pc.dim('  Try:'));
+    console.log(pc.dim(`    npx opencode-agents list`));
+    console.log();
   } catch (err) {
-    installSpinner.fail(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
-    logger.error(String(err));
+    s.stop('Installation failed');
+    error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   } finally {
     if (existsSync(tempDir) && tempDir.startsWith(tmpdir())) {
