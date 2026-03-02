@@ -36,7 +36,11 @@ export async function discoverFromDirectory(dir: string): Promise<AgentFile[]> {
         const result = parseAgentFile(content, file);
         // 如果解析结果为 null，说明不是 Agent 文件（是 Skill 文件）
         if (result === null) continue;
-        agents.push(result);
+        // 去重：避免重复添加同一个文件
+        const exists = agents.some(a => a.path === result.path);
+        if (!exists) {
+          agents.push(result);
+        }
       } catch (err) {
         continue;
       }
