@@ -1,0 +1,341 @@
+/**
+ * Fire 文件工具模块
+ * 提供直接读取和操作 .fire 场景文件的功能
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * 加载场景文件
+ */
+function loadScene(scenePath) {
+    if (!fs.existsSync(scenePath)) {
+        throw new Error(`场景文件不存在: ${scenePath}`);
+    }
+    
+    const content = fs.readFileSync(scenePath, 'utf8');
+    return JSON.parse(content);
+}
+
+/**
+ * 保存场景文件
+ */
+function saveScene(scenePath, data) {
+    fs.writeFileSync(scenePath, JSON.stringify(data, null, 2), 'utf8');
+}
+
+/**
+ * 构建 ID 和索引映射
+ */
+function buildMaps(data) {
+    const idMap = {};    // _id -> index
+    const indexMap = {}; // index -> { _id, name, path }
+    
+    function traverse(nodeIndex, parentPath = '') {
+        const node = data[nodeIndex];
+        if (!node) return;
+        
+        const nodeId = node._id;
+        if (nodeId) {
+            idMap[nodeId] = nodeIndex;
+        }
+        
+        const nodeName = node._name || '(unnamed)';
+        const nodePath = parentPath ? `${parentPath}/${nodeName}` : nodeName;
+        
+        indexMap[nodeIndex] = {
+            _id: nodeId,
+            name: nodeName,
+            path: nodePath,
+            type: node.__type__
+        };
+        
+        // 递归处理子节点
+        if (node._children) {
+            node._children.forEach(childRef => {
+                traverse(childRef.__id__, nodePath);
+            });
+        }
+    }
+    
+    // 从 Scene 开始遍历（索引 1）
+    if (data[1]) {
+        traverse(1);
+    }
+    
+    return { idMap, indexMap };
+}
+
+/**
+ * 查找节点索引
+ */
+function findNodeIndex(data, indexMap, nodeRef) {
+    // 如果是数字，直接返回
+    if (/^\d+$/.test(nodeRef)) {
+        return parseInt(nodeRef);
+    }
+    
+    // 按名称/路径查找
+    for (const [idx, info] of Object.entries(indexMap)) {
+        if (info.name === nodeRef || info.path === nodeRef || info.path.endsWith('/' + nodeRef)) {
+            return parseInt(idx);
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * 递归收集节点及其所有子节点和组件的索引
+ */
+function collectNodeAndChildren(data, nodeIndex, collected = new Set()) {
+    if (collected.has(nodeIndex)) return collected;
+    
+    const node = data[nodeIndex];
+    if (!node) return collected;
+    
+    collected.add(nodeIndex);
+    
+    // 收集所有组件
+    if (node._components) {
+        for (const compRef of node._components) {
+            collected.add(compRef.__id__);
+        }
+    }
+    
+    // 递归收集子节点
+    if (node._children) {
+        for (const childRef of node._children) {
+            collectNodeAndChildren(data, childRef.__id__, collected);
+        }
+    }
+    
+    return collected;
+}
+
+/**
+ * 重建所有 __id__ 引用（删除元素后索引变化）
+ */
+function rebuildReferences(data, deletedIndices) {
+    const indexMap = {};
+    let newIndex = 0;
+    for (let oldIndex = 0; oldIndex < data.length; oldIndex++) {
+        if (!deletedIndices.has(oldIndex)) {
+            indexMap[oldIndex] = newIndex;
+            newIndex++;
+        }
+    }
+    
+    function updateRef(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (obj.__id__ !== undefined) {
+            const oldId = obj.__id__;
+            if (indexMap[oldId] !== undefined) {
+                obj.__id__ = indexMap[oldId];
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                updateRef(obj[key]);
+            }
+        }
+    }
+    
+    for (const item of data) {
+        updateRef(item);
+    }
+    
+    return indexMap;
+}
+
+/**
+ * 重新排列数组，使其与 _children 顺序一致（节点后跟组件）
+ */
+function reorderArrayToMatchChildren(data) {
+    const newArray = [];
+    const indexMap = {};
+    
+    newArray[0] = data[0];
+    newArray[1] = data[1];
+    indexMap[0] = 0;
+    indexMap[1] = 1;
+    
+    const dataByIndex = {};
+    for (let i = 0; i < data.length; i++) {
+        if (data[i]) dataByIndex[i] = data[i];
+    }
+    
+    function addNodeAndChildren(nodeIndex) {
+        if (nodeIndex === null || nodeIndex === undefined) return;
+        
+        const node = data[nodeIndex];
+        if (!node) return;
+        
+        const newIndex = newArray.length;
+        indexMap[nodeIndex] = newIndex;
+        newArray.push(node);
+        
+        if (node._components) {
+            for (const compRef of node._components) {
+                const compIndex = compRef.__id__;
+                if (compIndex !== undefined && dataByIndex[compIndex]) {
+                    const compNewIndex = newArray.length;
+                    indexMap[compIndex] = compNewIndex;
+                    newArray.push(dataByIndex[compIndex]);
+                }
+            }
+        }
+        
+        if (node._children) {
+            for (const childRef of node._children) {
+                addNodeAndChildren(childRef.__id__);
+            }
+        }
+    }
+    
+    const scene = data[1];
+    if (scene && scene._children) {
+        for (const childRef of scene._children) {
+            addNodeAndChildren(childRef.__id__);
+        }
+    }
+    
+    function addRootComponents(nodeIndex) {
+        const node = data[nodeIndex];
+        if (!node || !node._components) return;
+        
+        for (const compRef of node._components) {
+            const compIndex = compRef.__id__;
+            if (compIndex !== undefined && dataByIndex[compIndex] && indexMap[compIndex] === undefined) {
+                const compNewIndex = newArray.length;
+                indexMap[compIndex] = compNewIndex;
+                newArray.push(dataByIndex[compIndex]);
+            }
+        }
+    }
+    
+    addRootComponents(1);
+    addRootComponents(2);
+    
+    function updateRefs(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (obj.__id__ !== undefined) {
+            const oldId = obj.__id__;
+            if (indexMap[oldId] !== undefined) {
+                obj.__id__ = indexMap[oldId];
+            }
+        } else {
+            for (const key of Object.keys(obj)) {
+                updateRefs(obj[key]);
+            }
+        }
+    }
+    
+    for (const item of newArray) {
+        updateRefs(item);
+    }
+    
+    return newArray;
+}
+
+/**
+ * 触发 Cocos Creator 编辑器刷新资源
+ * 先尝试调用 CLI Helper 插件 (7455端口)，失败则调用编辑器默认接口
+ * 编辑器有可能没打开，调用失败不报错
+ * @param {string} scenePath - 场景文件路径（可选）
+ */
+function refreshEditor(scenePath) {
+    const { execSync } = require('child_process');
+    const path = require('path');
+    
+    // 转换场景路径为 db:// 格式
+    let sceneUrl = null;
+    if (scenePath) {
+        const assetsPath = path.dirname(scenePath);
+        const projectPath = path.dirname(assetsPath);
+        const relativePath = path.relative(projectPath, scenePath).replace(/\\/g, '/');
+        sceneUrl = 'db://' + relativePath.replace(/^assets\//, 'assets/');
+    }
+    
+    // 先尝试调用插件
+    try {
+        const curlCmd = sceneUrl 
+            ? `curl.exe -s -X POST -H "Content-Type: application/json" -d "{\\"sceneUrl\\":\\"${sceneUrl}\\"}" http://localhost:7455/refresh`
+            : 'curl.exe -s -X POST http://localhost:7455/refresh';
+        execSync(curlCmd, { 
+            timeout: 5000,
+            windowsHide: true
+        });
+        return;
+    } catch (e) {
+        // 插件未启动，尝试编辑器默认接口
+    }
+    
+    // 尝试调用编辑器默认接口
+    try {
+        execSync('curl.exe -s http://localhost:7456/update-db', { 
+            timeout: 3000,
+            windowsHide: true
+        });
+    } catch (e) {
+        // 编辑器没打开，静默处理
+    }
+}
+
+/**
+ * 检测并安装 CLI Helper 插件到项目
+ * @param {string} scenePath - 场景文件路径
+ * @returns {boolean} - 是否已安装
+ */
+function installPlugin(scenePath) {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        
+        // 获取项目路径
+        const assetsPath = path.dirname(scenePath);
+        const projectPath = path.dirname(assetsPath);
+        const packagesPath = path.join(projectPath, 'packages');
+        const pluginPath = path.join(packagesPath, 'cocos-cli-helper');
+        
+        // 如果插件已存在，直接返回
+        if (fs.existsSync(pluginPath)) {
+            return true;
+        }
+        
+        // 创建 packages 目录
+        if (!fs.existsSync(packagesPath)) {
+            fs.mkdirSync(packagesPath, { recursive: true });
+        }
+        
+        // 获取 CLI 自带的插件路径
+        const cliPluginPath = path.join(__dirname, '..', '..', 'editor-plugin', 'cocos-cli-helper');
+        
+        if (!fs.existsSync(cliPluginPath)) {
+            console.log('[CLI] 插件源文件不存在');
+            return false;
+        }
+        
+        // 复制插件
+        fs.cpSync(cliPluginPath, pluginPath, { recursive: true });
+        console.log('[CLI] CLI Helper 插件已安装到项目，请在编辑器中启用');
+        return true;
+    } catch (e) {
+        console.log(`[CLI] 安装插件失败: ${e.message}`);
+        return false;
+    }
+}
+
+module.exports = {
+    loadScene,
+    saveScene,
+    buildMaps,
+    findNodeIndex,
+    collectNodeAndChildren,
+    rebuildReferences,
+    reorderArrayToMatchChildren,
+    refreshEditor,
+    installPlugin
+};

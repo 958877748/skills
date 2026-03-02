@@ -8,12 +8,12 @@ const path = require('path');
 
 // 命令映射
 const commands = {
-    open: '../src/commands/open',
-    close: '../src/commands/close',
     tree: '../src/commands/tree',
     get: '../src/commands/get',
     set: '../src/commands/set',
     add: '../src/commands/add',
+    'add-component': '../src/commands/add-component',
+    'remove': '../src/commands/remove',
     delete: '../src/commands/delete',
     build: '../src/commands/build'
 };
@@ -27,29 +27,42 @@ Cocos Creator CLI - 场景操作工具集
   cocos2.4 <command> [options]
 
 命令:
-  open <scene.fire>              打开会话
-  close --session=<id>           关闭会话并保存
-  tree --session=<id>            查看节点树
-  get <node> --session=<id>      获取节点信息
-  set <node> --session=<id>      修改节点属性
-  add <parent> <name>            添加节点
-  delete <node> --session=<id>   删除节点
-  build <project-dir>            构建组件映射
+  tree <场景文件路径>                    查看节点树
+  get <场景文件路径> <节点>              获取节点信息
+  set <场景文件路径> <节点> [选项]       修改节点属性
+  add <场景文件路径> <父节点> <名称>     添加节点
+  add-component <场景文件路径> <节点> <类型>  给节点添加组件
+  remove <场景路径> <索引>               删除节点或组件
+  delete <场景文件路径> <节点>           删除节点
+  build <项目目录>                       构建组件映射
 
-会话模式:
-  1. open  → 打开会话，获取 sessionId
-  2. 操作  → tree/add/get/set/delete（带 sessionId）
-  3. close → 保存场景，关闭会话
+选项:
+  --name=<名称>          修改节点名称
+  --active=true/false    修改激活状态
+  --x=<数值>             修改 X 坐标
+  --y=<数值>             修改 Y 坐标
+  --width=<数值>         修改宽度
+  --height=<数值>        修改高度
+  --anchorX=<0-1>        修改锚点 X
+  --anchorY=<0-1>        修改锚点 Y
+  --opacity=<0-255>      修改透明度
+  --color=<#RRGGBB>      修改颜色
+  --rotation=<角度>      修改旋转角度
+  --scaleX=<数值>        修改 X 缩放
+  --scaleY=<数值>        修改 Y 缩放
+  --type=sprite/label    添加节点时指定组件类型
+  --at=<位置>            添加节点时指定插入位置
 
 示例:
-  cocos2.4 open assets/main.fire
-  cocos2.4 tree --session=a0e9c696
-  cocos2.4 add Canvas Sprite --session=a0e9c696 --type=sprite --x=100
-  cocos2.4 set Canvas/Sprite --session=a0e9c696 --x=200 --opacity=128
-  cocos2.4 delete OldNode --session=a0e9c696
-  cocos2.4 close --session=a0e9c696
+  cocos2.4 tree assets/main.fire
+  cocos2.4 get assets/main.fire Canvas
+  cocos2.4 set assets/main.fire Canvas/Player --x=100 --y=200
+  cocos2.4 add assets/main.fire Canvas NewSprite --type=sprite --x=100
+  cocos2.4 add-component assets/main.fire Canvas/Player sprite
+  cocos2.4 delete assets/main.fire OldNode
+  cocos2.4 build ./my-project
 
-版本: 1.0.1
+版本: 1.0.2
 `);
 }
 

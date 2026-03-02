@@ -13,40 +13,22 @@ description: Command-line tools for AI to read and manipulate Cocos Creator 2.4.
 
 ## 工具概览
 
-| 工具 | 功能 | 推荐场景 |
-|------|------|----------|
-| `scene_session.js` | 会话模式操作 | **批量操作（推荐）** |
-| `fire_reader.js` | 查看节点树 | 快速查看结构 |
-| `get_node_property.js` | 获取属性 | 单次查询 |
-| `add_node.js` | 添加节点 | 单次添加 |
-| `delete_node.js` | 删除节点 | 单次删除 |
-| `build_script_map.js` | 构建组件映射 | 首次使用前 |
+| 工具 | 功能 |
+|------|------|
+| `tree` | 查看节点树 |
+| `get` | 获取节点属性 |
+| `set` | 修改节点属性 |
+| `add` | 添加节点 |
+| `add-component` | 给节点添加组件 |
+| `delete` | 删除节点 |
+| `build` | 构建组件映射 |
 
-## 推荐工作流程（会话模式）
+## 命令使用
 
-会话模式解决索引变化问题，适合 AI 批量操作：
-
-```
-1. open  → 打开会话，获取 sessionId
-2. 操作  → tree/add/get/set/delete（带 sessionId）
-3. close → 保存场景，关闭会话
-```
-
-### 打开会话
+### 查看场景结构
 
 ```bash
-node cocos-cli/scene_session.js open <场景文件路径>
-```
-
-返回示例：
-```json
-{"sessionId": "a0e9c696", "nodeCount": 10}
-```
-
-### 查看节点树
-
-```bash
-node cocos-cli/scene_session.js tree --session=<sessionId>
+node bin/cocos-cli.js tree <场景文件路径>
 ```
 
 输出格式：
@@ -62,44 +44,38 @@ Root #1
 - `○` = 节点未激活
 - `#数字` = 节点/组件索引
 
-### 添加节点
+### 获取节点信息
 
 ```bash
-# 基本添加
-node cocos-cli/scene_session.js add <父节点路径> <节点名称> --session=<id>
+# 按索引
+node bin/cocos-cli.js get <场景路径> 5
 
-# 带组件和属性
-node cocos-cli/scene_session.js add Canvas Sprite --session=<id> --type=sprite --x=100 --y=200 --at=1
+# 按路径
+node bin/cocos-cli.js get <场景路径> Canvas/Tilemap
+
+# 获取组件
+node bin/cocos-cli.js get <场景路径> Canvas/Tilemap
 ```
-
-选项：
-| 选项 | 说明 |
-|------|------|
-| `--type=sprite/label` | 添加组件类型 |
-| `--x=N --y=N` | 节点坐标 |
-| `--width=N --height=N` | 节点大小 |
-| `--at=N` | 插入位置（0=第一个子节点） |
-| `--active=false` | 设为不激活 |
 
 ### 修改节点属性
 
 ```bash
-node cocos-cli/scene_session.js set <节点路径> --session=<id> [选项]
+node bin/cocos-cli.js set <场景路径> <节点路径> [选项]
 ```
 
 示例：
 ```bash
 # 修改位置
-node cocos-cli/scene_session.js set Canvas/Player --session=<id> --x=100 --y=200
+node bin/cocos-cli.js set assets/main.fire Canvas/Player --x=100 --y=200
 
 # 修改名称和激活状态
-node cocos-cli/scene_session.js set 5 --session=<id> --name=NewName --active=false
+node bin/cocos-cli.js set assets/main.fire 5 --name=NewName --active=false
 
 # 修改大小、颜色、透明度
-node cocos-cli/scene_session.js set Sprite --session=<id> --width=100 --height=50 --color=#FF0000 --opacity=128
+node bin/cocos-cli.js set assets/main.fire Sprite --width=100 --height=50 --color=#FF0000 --opacity=128
 
 # 修改旋转和缩放
-node cocos-cli/scene_session.js set Player --session=<id> --rotation=45 --scaleX=2 --scaleY=2
+node bin/cocos-cli.js set assets/main.fire Player --rotation=45 --scaleX=2 --scaleY=2
 ```
 
 选项：
@@ -118,70 +94,47 @@ node cocos-cli/scene_session.js set Player --session=<id> --rotation=45 --scaleX
 | `--rotation=<角度>` | 修改旋转角度 | `--rotation=45` |
 | `--scaleX=<数值>` | 修改 X 缩放 | `--scaleX=2` |
 | `--scaleY=<数值>` | 修改 Y 缩放 | `--scaleY=2` |
-| `--zIndex=<数值>` | 修改层级顺序 | `--zIndex=10` |
-
-### 获取节点信息
-
-```bash
-# 按索引
-node cocos-cli/scene_session.js get 5 --session=<id>
-
-# 按路径
-node cocos-cli/scene_session.js get Canvas/Tilemap --session=<id>
-
-# 获取组件
-node cocos-cli/scene_session.js get Canvas/Tilemap Tilemap --session=<id>
-```
-
-### 删除节点
-
-```bash
-node cocos-cli/scene_session.js delete <节点路径> --session=<id>
-```
-
-删除行为：
-- 真正从数组中移除元素（非标记销毁）
-- 递归删除所有子节点和组件
-- 自动重建所有 `__id__` 索引引用
-- 与 Cocos Creator 编辑器行为一致
-
-### 关闭会话
-
-```bash
-node cocos-cli/scene_session.js close --session=<id>
-```
-
-## 单次操作（非会话模式）
-
-### 查看场景结构
-
-```bash
-node cocos-cli/fire_reader.js <场景文件路径>
-```
-
-### 获取节点属性
-
-```bash
-# 按索引
-node cocos-cli/get_node_property.js <场景路径> 5
-
-# 按路径
-node cocos-cli/get_node_property.js <场景路径> Canvas/Tilemap
-
-# 获取组件
-node cocos-cli/get_node_property.js <场景路径> Canvas/Tilemap Tilemap
-```
 
 ### 添加节点
 
 ```bash
-node cocos-cli/add_node.js <场景路径> <父节点> <节点名> [--type=sprite/label] [--x=N] [--y=N]
+# 基本添加
+node bin/cocos-cli.js add <场景路径> <父节点路径> <节点名称>
+
+# 带组件和属性
+node bin/cocos-cli.js add assets/main.fire Canvas Sprite --type=sprite --x=100 --y=200 --at=1
 ```
+
+选项：
+| 选项 | 说明 |
+|------|------|
+| `--type=sprite/label` | 添加组件类型 |
+| `--x=N --y=N` | 节点坐标 |
+| `--width=N --height=N` | 节点大小 |
+| `--at=N` | 插入位置（0=第一个子节点） |
+| `--active=false` | 设为不激活 |
+
+### 添加组件
+
+```bash
+node bin/cocos-cli.js add-component <场景路径> <节点路径> <组件类型>
+```
+
+示例：
+```bash
+node bin/cocos-cli.js add-component assets/main.fire Canvas/Player sprite
+node bin/cocos-cli.js add-component assets/main.fire Canvas/Title label
+node bin/cocos-cli.js add-component assets/main.fire Canvas/Button button
+```
+
+支持的组件类型：
+- 内置组件：`sprite`, `label`, `button`, `layout`, `widget`, `camera`, `canvas`, `particleSystem`
+- 自定义脚本：直接使用脚本类名
 
 ### 删除节点
 
 ```bash
-node cocos-cli/delete_node.js <场景路径> <节点索引或路径>
+node bin/cocos-cli.js delete <场景路径> <节点索引或路径>
 ```
 
 删除节点会同时删除其所有子节点和组件，并自动重建索引引用。
@@ -191,10 +144,10 @@ node cocos-cli/delete_node.js <场景路径> <节点索引或路径>
 如果场景包含自定义组件，需要先构建组件映射：
 
 ```bash
-node cocos-cli/build_script_map.js <cocos项目路径>
+node bin/cocos-cli.js build <cocos项目路径>
 ```
 
-这会生成 `script_map.json`，用于将组件 hash ID 映射到类名。
+这会生成 `data/script_map.json`，用于将组件 hash ID 映射到类名。
 
 ## 输出格式
 
@@ -232,8 +185,25 @@ node cocos-cli/build_script_map.js <cocos项目路径>
 
 ## 注意事项
 
-1. **会话模式优先**：批量操作务必使用 `scene_session.js`，避免索引错乱
+1. **直接操作文件**：所有命令直接读取和保存场景文件，无需会话管理
 2. **删除行为**：删除节点会真正移除数组元素并重建索引，与编辑器行为一致
-3. **并发保护**：同一场景的新会话会使旧会话失效
-4. **版本兼容**：仅支持 Cocos Creator 2.4.x
-5. **资源引用**：自动转换为 `db://assets/xxx` 格式
+3. **版本兼容**：仅支持 Cocos Creator 2.4.x
+4. **资源引用**：自动转换为 `db://assets/xxx` 格式
+
+## 工作流程示例
+
+```bash
+# 1. 查看节点树
+node bin/cocos-cli.js tree assets/main.fire
+
+# 2. 添加节点
+node bin/cocos-cli.js add assets/main.fire Canvas NewSprite --type=sprite --x=100 --y=200
+
+# 3. 修改属性
+node bin/cocos-cli.js set assets/main.fire Canvas/NewSprite --x=200 --scaleX=2
+
+# 4. 删除节点
+node bin/cocos-cli.js delete assets/main.fire Canvas/OldNode
+
+# 5. 在编辑器中调整节点顺序（如果需要）
+```

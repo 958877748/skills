@@ -1,104 +1,20 @@
 # Cocos Creator CLI 开发状态
 
-> 最后更新：2026年2月12日
+> 最后更新：2026年3月2日
 
-## ✅ 已修复功能
-
-### 删除节点
-
-**状态**：✅ 已完成，与编辑器行为一致
-
-**修复内容**：
-- 真正从数组中移除元素（而非标记销毁）
-- 递归删除所有子节点和组件
-- 自动重建所有 `__id__` 索引引用
-- 支持单次删除和会话模式删除
-
-**验证结果**：
-| 测试项 | 结果 |
-|--------|------|
-| 删除单个节点 | ✅ 通过 |
-| 删除有子节点的节点 | ✅ 通过 |
-| 与编辑器行为对比 | ✅ 一致 |
-
-**相关文件**：
-- `delete_node.js` - 单次删除工具
-- `scene_session.js` - 会话模式删除
-
----
-
-## 📋 功能清单
+## ✅ 功能清单
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 查看节点树 | ✅ 正常 | `fire_reader.js` / `scene_session.js tree` |
-| 获取节点属性 | ✅ 正常 | `get_node_property.js` / `scene_session.js get` |
-| 修改节点属性 | ✅ 正常 | `scene_session.js set` |
-| 添加节点 | ✅ 正常 | 支持插入到任意位置，与编辑器行为一致 |
-| 删除节点 | ✅ 正常 | 与编辑器行为一致 |
-| 会话模式 | ✅ 正常 | 支持批量操作 |
-
----
-
-## 🧪 测试场景
-
-项目位置：`c:\Users\guole\Documents\GitHub\skills\cocos`
-
-测试文件：
-- `test_backup.fire` - 原始测试场景（包含 Parent/Child1/Child2 结构）
-- `test.fire` - 当前编辑场景
-- `test_delete_test.fire` - 删除测试用
-- `test_add_test.fire` - 添加测试用
-
----
-
-## 🔧 后续计划
-
-### 高优先级
-1. ~~修复添加节点~~ - ✅ 已完成
-
-### 中优先级
-2. 测试修改属性 - 验证 `set` 命令在各种场景下的稳定性
-3. **添加更多组件类型** - Button、Widget、Layout 等
-
-### 低优先级
-4. **复制节点功能** - 复制节点及其子节点
-5. **查找功能** - 按名称/组件类型查找节点
-
----
-
-## 💡 使用建议
-
-### 推荐工作流
-
-```bash
-# 1. 打开会话
-node scene_session.js open assets/main.fire
-# 返回: {"sessionId": "a0e9c696"}
-
-# 2. 查看节点树
-node scene_session.js tree --session=a0e9c696
-
-# 3. 添加节点（会追加到末尾）
-node scene_session.js add Canvas NewSprite --session=a0e9c696 --type=sprite --x=100 --y=200
-
-# 4. 修改属性
-node scene_session.js set Canvas/NewSprite --session=a0e9c696 --x=200 --scaleX=2
-
-# 5. 删除节点（完全支持）
-node scene_session.js delete Canvas/OldNode --session=a0e9c696
-
-# 6. 关闭会话保存
-node scene_session.js close --session=a0e9c696
-
-# 7. 在编辑器中调整节点顺序（如果需要）
-```
-
-### 注意事项
-
-1. **添加节点后**，建议在编辑器中检查并调整节点顺序
-2. **删除节点**可以放心使用，与编辑器行为完全一致
-3. **会话模式**适合批量操作，避免索引错乱问题
+| 查看节点树 | ✅ 正常 | `tree` 命令，组件显示索引 |
+| 获取节点属性 | ✅ 正常 | `get` 命令 |
+| 修改节点属性 | ✅ 正常 | `set` 命令，支持自动刷新编辑器 |
+| 添加节点 | ✅ 正常 | `add` 命令，支持插入到任意位置 |
+| 添加组件 | ✅ 正常 | `add-component` 命令 |
+| 删除节点 | ✅ 正常 | `delete` 命令，与编辑器行为一致 |
+| 删除组件 | ✅ 正常 | `remove` 命令，支持自动刷新编辑器 |
+| 构建组件映射 | ✅ 正常 | `build` 命令 |
+| 编辑器自动刷新 | ✅ 正常 | 通过 CLI Helper 插件实现 |
 
 ---
 
@@ -134,15 +50,75 @@ node scene_session.js close --session=a0e9c696
 5. 保存文件
 ```
 
-### 添加算法（当前）
+### 添加算法
 
 ```javascript
 1. 创建新节点和组件
 2. 追加到数组末尾
 3. 更新父节点 _children
-4. 保存文件
-// 问题：没有重建索引，导致顺序与编辑器不同
+4. 重新排列数组以匹配 _children 顺序
+5. 保存文件
 ```
+
+### 编辑器自动刷新机制
+
+**CLI Helper 插件**（`editor-plugin/cocos-cli-helper/`）：
+- 启动 HTTP 服务器（端口 7455）
+- 接收 `/refresh` POST 请求
+- 刷新资源数据库：`Editor.assetdb.refresh()`
+- 重新打开场景：`Editor.Ipc.sendToMain('scene:open-by-uuid', uuid)`
+
+**自动安装**：
+- CLI 首次执行时自动复制插件到项目 `packages/` 目录
+- 用户需在编辑器中启用插件
+
+---
+
+## 💡 使用建议
+
+### 推荐工作流
+
+```bash
+# 1. 查看节点树（组件会显示索引）
+node bin/cocos-cli.js tree assets/main.fire
+
+# 2. 添加节点
+node bin/cocos-cli.js add assets/main.fire Canvas NewSprite --type=sprite --x=100 --y=200
+
+# 3. 修改属性（自动刷新编辑器）
+node bin/cocos-cli.js set assets/main.fire Canvas/NewSprite --x=200 --scaleX=2
+
+# 4. 删除组件（自动刷新编辑器）
+node bin/cocos-cli.js remove assets/main.fire 15
+
+# 5. 删除节点
+node bin/cocos-cli.js delete assets/main.fire Canvas/OldNode
+```
+
+### 注意事项
+
+1. **首次使用**：确保在编辑器中启用 CLI Helper 插件
+2. **组件索引**：tree 命令会显示组件索引，用于 remove 命令
+3. **自动刷新**：增删改操作后编辑器会自动重新加载场景
+4. **直接操作文件**：所有命令直接读取和保存场景文件
+
+---
+
+## 🗑️ 已删除功能
+
+| 功能 | 删除原因 |
+|------|---------|
+| 会话模式（open/close）| 直接操作文件更简单高效 |
+| session.js | 不再需要会话管理 |
+
+---
+
+## 📚 参考项目
+
+### mcp-bridge
+- **URL**: https://github.com/firekula/mcp-bridge
+- **用途**: Cocos Creator 编辑器扩展开发参考
+- **查找 IPC 信息**: 搜索 `Editor.Ipc.sendToMain`、`Editor.Ipc.sendToPanel`、`scene:` 等关键词
 
 ---
 

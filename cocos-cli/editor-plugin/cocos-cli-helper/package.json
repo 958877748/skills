@@ -1,0 +1,19 @@
+{
+  "name": "cocos-cli-helper",
+  "version": "1.0.0",
+  "description": "Cocos Creator CLI 辅助插件",
+  "author": "Cocos CLI",
+  "main": "main.js",
+  "panel": {
+    "main": "panel/index.js",
+    "type": "dockable",
+    "title": "CLI Helper",
+    "width": 200,
+    "height": 100
+  },
+  "messages": {
+    "refresh": {
+      "methods": ["refresh"]
+    }
+  }
+}
