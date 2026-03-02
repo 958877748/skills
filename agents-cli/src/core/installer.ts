@@ -110,12 +110,14 @@ export function listInstalledAgents(platform: AgentPlatform, global: boolean): A
   
   for (const path of paths) {
     if (!existsSync(path)) continue;
-    
+
     const mdFiles = findFiles(path, /\.md$/);
     for (const file of mdFiles) {
       try {
         const content = readFileSync(file, 'utf-8');
         const agentFile = parseAgentFile(content, file);
+        // 如果解析结果为 null，说明不是 Agent 文件（是 Skill 文件）
+        if (agentFile === null) continue;
         agents.push(agentFile);
       } catch (err) {
         continue;

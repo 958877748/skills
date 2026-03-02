@@ -26230,8 +26230,30 @@ import { mkdtempSync } from "fs";
 
 // src/core/parser.ts
 var import_gray_matter = __toESM(require_gray_matter(), 1);
+var AGENT_SPECIFIC_FIELDS = [
+  "mode",
+  "model",
+  "temperature",
+  "maxSteps",
+  "color",
+  "trigger",
+  "tools",
+  "permission",
+  "mcp"
+];
+function isAgentContent(content) {
+  try {
+    const { data } = (0, import_gray_matter.default)(content);
+    return AGENT_SPECIFIC_FIELDS.some((field) => field in data);
+  } catch {
+    return false;
+  }
+}
 function parseAgentFile(content, path) {
   const { data, content: body } = (0, import_gray_matter.default)(content);
+  if (!isAgentContent(content)) {
+    return null;
+  }
   if (!data.description) {
     throw new Error(`Agent at ${path} is missing required "description" field in frontmatter`);
   }
@@ -26386,7 +26408,6 @@ var SEARCH_DIRECTORIES = [
 ];
 var PRIORITY_FILES = [
   "AGENTS.md",
-  "SKILL.md",
   "AGENT.md"
 ];
 async function discoverFromDirectory(dir) {
@@ -26401,8 +26422,9 @@ async function discoverFromDirectory(dir) {
       if (fileName === "README.md") continue;
       try {
         const content = readFileSync2(file, "utf-8");
-        const agentFile = parseAgentFile(content, file);
-        agents.push(agentFile);
+        const result = parseAgentFile(content, file);
+        if (result === null) continue;
+        agents.push(result);
       } catch (err) {
         continue;
       }
@@ -26413,10 +26435,11 @@ async function discoverFromDirectory(dir) {
     if (existsSync2(priorityFile)) {
       try {
         const content = readFileSync2(priorityFile, "utf-8");
-        const agentFile = parseAgentFile(content, priorityFile);
-        const exists = agents.some((a) => a.path === agentFile.path);
+        const result = parseAgentFile(content, priorityFile);
+        if (result === null) continue;
+        const exists = agents.some((a) => a.path === result.path);
         if (!exists) {
-          agents.unshift(agentFile);
+          agents.unshift(result);
         }
       } catch (err) {
         continue;
@@ -27026,6 +27049,7 @@ function listInstalledAgents(platform, global2) {
       try {
         const content = readFileSync3(file, "utf-8");
         const agentFile = parseAgentFile(content, file);
+        if (agentFile === null) continue;
         agents.push(agentFile);
       } catch (err) {
         continue;
