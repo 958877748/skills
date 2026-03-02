@@ -8,7 +8,7 @@ import type { AgentPlatform, InstallOptions, AgentFile } from '../types/index.js
 import { basename, join } from 'path';
 import { mkdtempSync } from 'fs';
 import degit from 'degit';
-import { showLogo, S_BAR, S_BRANCH, S_BRANCH_END, S_BULLET, S_STEP_ACTIVE } from '../utils/ui.js';
+import { showLogo } from '../utils/ui.js';
 
 interface AddCommandOptions {
   global: boolean | undefined;
@@ -39,11 +39,11 @@ async function promptSelectAgents(agents: AgentFile[]): Promise<AgentFile[]> {
   const options = agents.map(agent => ({
     value: agent,
     label: agent.agent.name || basename(agent.path, '.md'),
-    hint: agent.agent.description?.slice(0, 50) + '...',
+    hint: agent.agent.description?.slice(0, 50),
   }));
 
   const selected = await p.multiselect({
-    message: 'Select agents to install (space to select, enter to confirm):',
+    message: 'Select agents to install:',
     options,
     required: true,
   });
@@ -90,33 +90,28 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     isGlobal = await promptInstallLocation();
   }
 
-  // 使用统一的树状结构
-  console.log(`${S_STEP_ACTIVE} ${pc.cyan('Source:')} ${pc.dim(`https://github.com/${source}.git`)}`);
-  console.log(S_BAR);
+  p.log.step(`Source: ${pc.cyan(`https://github.com/${source}.git`)}`);
   
   const s = p.spinner();
-  s.start('Cloning repository...');
+  s.start('Cloning repository');
   
   let tempDir: string;
   try {
     tempDir = await fetchSource(source);
-    s.stop(`${pc.green('✓')} Repository cloned`);
+    s.stop('Repository cloned');
   } catch (err) {
-    s.stop(`${pc.red('✗')} Failed to clone repository`);
+    s.stop('Failed to clone repository');
     p.log.error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 
-  console.log(S_BAR);
-  
-  // 步骤 2: 发现 agents
-  s.start('Discovering agents...');
+  s.start('Discovering agents');
   let agents: AgentFile[];
   try {
     agents = await discoverFromDirectory(tempDir);
-    s.stop(`${pc.green('✓')} Found ${agents.length} agent(s)`);
+    s.stop(`Found ${pc.green(String(agents.length))} agent(s)`);
   } catch (err) {
-    s.stop(`${pc.red('✗')} Failed to discover agents`);
+    s.stop('Failed to discover agents');
     p.log.error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
@@ -126,9 +121,6 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     process.exit(1);
   }
 
-  console.log(S_BAR);
-  
-  // 步骤 3: 选择 agents
   let selectedAgents: AgentFile[];
   if (options.yes) {
     selectedAgents = agents;
@@ -141,18 +133,13 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     process.exit(0);
   }
 
-  // 显示选中的 agents - 作为树的分支
-  console.log(`${S_BAR} ${S_BRANCH} ${pc.dim('Selected:')}`);
-  selectedAgents.forEach((agent, index) => {
-    const isLast = index === selectedAgents.length - 1;
-    const prefix = isLast ? S_BRANCH_END : S_BRANCH;
-    const name = agent.agent.name || basename(agent.path, '.md');
-    console.log(`${S_BAR} ${isLast ? ' ' : S_BAR} ${prefix} ${S_BULLET} ${pc.bold(name)}`);
-  });
+  // 显示选中的 agents
+  const selectedList = selectedAgents.map(agent => 
+    `  ${pc.bold(agent.agent.name || basename(agent.path, '.md'))}`
+  ).join('\n');
+  p.note(selectedList, 'Selected agents');
 
-  // 步骤 4: 安装
-  console.log(S_BAR);
-  s.start('Installing agents...');
+  s.start(`Installing ${selectedAgents.length} agent(s)`);
 
   try {
     let platforms: AgentPlatform[];
@@ -176,14 +163,11 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
 
     await installAgent(installOptions);
 
-    s.stop(`${pc.green('✓')} Successfully installed ${selectedAgents.length} agent(s)`);
+    s.stop(pc.green(`Successfully installed ${selectedAgents.length} agent(s)`));
     
-    console.log();
-    console.log(pc.dim('  Next steps:'));
-    console.log(pc.dim(`    npx opencode-agents list     View installed agents`));
-    console.log();
+    p.outro('Installation complete! Run `npx opencode-agents list` to see installed agents.');
   } catch (err) {
-    s.stop(`${pc.red('✗')} Installation failed`);
+    s.stop('Installation failed');
     p.log.error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   } finally {

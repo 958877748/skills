@@ -26038,6 +26038,12 @@ var Ne = (t = "", r) => {
 
 `);
 };
+var Le = (t = "", r) => {
+  (r?.output ?? process.stdout).write(`${import_picocolors.default.gray(d)}
+${import_picocolors.default.gray(x2)}  ${t}
+
+`);
+};
 var Z2 = (t, r) => t.split(`
 `).map((s) => r(s)).join(`
 `);
@@ -26090,6 +26096,25 @@ ${import_picocolors.default.cyan(x2)}
       }
     }
   } }).prompt();
+};
+var Ge = (t) => import_picocolors.default.dim(t);
+var ke = (t, r, s) => {
+  const i = { hard: true, trim: false }, a = J2(t, r, i).split(`
+`), o = a.reduce((n, c) => Math.max(M2(c), n), 0), u = a.map(s).reduce((n, c) => Math.max(M2(c), n), 0), l = r - (u - o);
+  return J2(t, l, i);
+};
+var Ve = (t = "", r = "", s) => {
+  const i = s?.output ?? N2.stdout, a = s?.withGuide ?? _.withGuide, o = s?.format ?? Ge, u = ["", ...ke(t, rt(i) - 6, o).split(`
+`).map(o), ""], l = M2(r), n = Math.max(u.reduce((p, E) => {
+    const $ = M2(E);
+    return $ > p ? $ : p;
+  }, 0), l) + 2, c = u.map((p) => `${import_picocolors.default.gray(d)}  ${p}${" ".repeat(n - M2(p))}${import_picocolors.default.gray(d)}`).join(`
+`), g = a ? `${import_picocolors.default.gray(d)}
+` : "", F = a ? Wt2 : gt2;
+  i.write(`${g}${import_picocolors.default.green(V)}  ${import_picocolors.default.reset(r)} ${import_picocolors.default.gray(rt2.repeat(Math.max(n - l - 1, 1)) + mt2)}
+${c}
+${import_picocolors.default.gray(F + rt2.repeat(n + 2) + pt2)}
+`);
 };
 var Ke = import_picocolors.default.magenta;
 var bt2 = ({ indicator: t = "dots", onCancel: r, output: s = process.stdout, cancelMessage: i, errorMessage: a, frames: o = et2 ? ["\u25D2", "\u25D0", "\u25D3", "\u25D1"] : ["\u2022", "o", "O", "0"], delay: u = et2 ? 80 : 120, signal: l, ...n } = {}) => {
@@ -27117,10 +27142,10 @@ async function promptSelectAgents(agents) {
   const options2 = agents.map((agent) => ({
     value: agent,
     label: agent.agent.name || basename4(agent.path, ".md"),
-    hint: agent.agent.description?.slice(0, 50) + "..."
+    hint: agent.agent.description?.slice(0, 50)
   }));
   const selected = await je({
-    message: "Select agents to install (space to select, enter to confirm):",
+    message: "Select agents to install:",
     options: options2,
     required: true
   });
@@ -27157,27 +27182,25 @@ async function addCommand(source, options2) {
   if (isGlobal === void 0) {
     isGlobal = await promptInstallLocation();
   }
-  console.log(`${S_STEP_ACTIVE} ${import_picocolors3.default.cyan("Source:")} ${import_picocolors3.default.dim(`https://github.com/${source}.git`)}`);
-  console.log(S_BAR);
+  R2.step(`Source: ${import_picocolors3.default.cyan(`https://github.com/${source}.git`)}`);
   const s = bt2();
-  s.start("Cloning repository...");
+  s.start("Cloning repository");
   let tempDir;
   try {
     tempDir = await fetchSource2(source);
-    s.stop(`${import_picocolors3.default.green("\u2713")} Repository cloned`);
+    s.stop("Repository cloned");
   } catch (err) {
-    s.stop(`${import_picocolors3.default.red("\u2717")} Failed to clone repository`);
+    s.stop("Failed to clone repository");
     R2.error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
-  console.log(S_BAR);
-  s.start("Discovering agents...");
+  s.start("Discovering agents");
   let agents;
   try {
     agents = await discoverFromDirectory(tempDir);
-    s.stop(`${import_picocolors3.default.green("\u2713")} Found ${agents.length} agent(s)`);
+    s.stop(`Found ${import_picocolors3.default.green(String(agents.length))} agent(s)`);
   } catch (err) {
-    s.stop(`${import_picocolors3.default.red("\u2717")} Failed to discover agents`);
+    s.stop("Failed to discover agents");
     R2.error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
@@ -27185,7 +27208,6 @@ async function addCommand(source, options2) {
     R2.error("No agents found in the source");
     process.exit(1);
   }
-  console.log(S_BAR);
   let selectedAgents;
   if (options2.yes) {
     selectedAgents = agents;
@@ -27196,15 +27218,11 @@ async function addCommand(source, options2) {
     Ne("No agents selected, aborting");
     process.exit(0);
   }
-  console.log(`${S_BAR} ${S_BRANCH} ${import_picocolors3.default.dim("Selected:")}`);
-  selectedAgents.forEach((agent, index) => {
-    const isLast = index === selectedAgents.length - 1;
-    const prefix = isLast ? S_BRANCH_END : S_BRANCH;
-    const name = agent.agent.name || basename4(agent.path, ".md");
-    console.log(`${S_BAR} ${isLast ? " " : S_BAR} ${prefix} ${S_BULLET} ${import_picocolors3.default.bold(name)}`);
-  });
-  console.log(S_BAR);
-  s.start("Installing agents...");
+  const selectedList = selectedAgents.map(
+    (agent) => `  ${import_picocolors3.default.bold(agent.agent.name || basename4(agent.path, ".md"))}`
+  ).join("\n");
+  Ve(selectedList, "Selected agents");
+  s.start(`Installing ${selectedAgents.length} agent(s)`);
   try {
     let platforms;
     if (options2.agent && options2.agent.length > 0) {
@@ -27223,13 +27241,10 @@ async function addCommand(source, options2) {
       selectedAgents
     };
     await installAgent(installOptions);
-    s.stop(`${import_picocolors3.default.green("\u2713")} Successfully installed ${selectedAgents.length} agent(s)`);
-    console.log();
-    console.log(import_picocolors3.default.dim("  Next steps:"));
-    console.log(import_picocolors3.default.dim(`    npx opencode-agents list     View installed agents`));
-    console.log();
+    s.stop(import_picocolors3.default.green(`Successfully installed ${selectedAgents.length} agent(s)`));
+    Le("Installation complete! Run `npx opencode-agents list` to see installed agents.");
   } catch (err) {
-    s.stop(`${import_picocolors3.default.red("\u2717")} Installation failed`);
+    s.stop("Installation failed");
     R2.error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   } finally {
@@ -27248,7 +27263,6 @@ async function listCommand(options2) {
   } else {
     platforms = ["opencode"];
   }
-  console.log();
   let hasAnyAgents = false;
   for (const platform of platforms) {
     const projectAgents = listInstalledAgents(platform, false);
@@ -27257,42 +27271,39 @@ async function listCommand(options2) {
       continue;
     }
     hasAnyAgents = true;
-    console.log(import_picocolors4.default.bold(import_picocolors4.default.cyan(`\u25C6 ${platform} agents`)));
+    console.log();
+    console.log(import_picocolors4.default.bold(import_picocolors4.default.cyan(`${platform} agents`)));
     console.log();
     if (projectAgents.length > 0) {
-      console.log(`  ${globalAgents.length > 0 ? S_BRANCH : S_BRANCH_END} ${import_picocolors4.default.dim("Project")} ${import_picocolors4.default.dim("(./.opencode/agents/)")}`);
-      projectAgents.forEach((agent, index) => {
-        const isLast = index === projectAgents.length - 1;
-        const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+      console.log(import_picocolors4.default.dim("Project (./.opencode/agents/)"));
+      for (const agent of projectAgents) {
         const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace(".md", "") || "unknown";
         const mode = agent.agent.mode || "subagent";
-        console.log(`  ${globalAgents.length > 0 ? S_BAR : "  "} ${prefix} ${S_BULLET} ${import_picocolors4.default.bold(name)} ${import_picocolors4.default.dim(`[${mode}]`)}`);
+        console.log(`  ${import_picocolors4.default.bold(name)} ${import_picocolors4.default.dim(`[${mode}]`)}`);
         if (agent.agent.description) {
-          console.log(`  ${globalAgents.length > 0 ? S_BAR : "  "} ${isLast ? "  " : `${S_BAR} `}   ${import_picocolors4.default.dim(agent.agent.description)}`);
+          console.log(`    ${import_picocolors4.default.dim(agent.agent.description)}`);
         }
-      });
+      }
       console.log();
     }
     if (globalAgents.length > 0) {
-      console.log(`  ${S_BRANCH_END} ${import_picocolors4.default.dim("Global")} ${import_picocolors4.default.dim("(~/.config/opencode/agents/)")}`);
-      globalAgents.forEach((agent, index) => {
-        const isLast = index === globalAgents.length - 1;
-        const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+      console.log(import_picocolors4.default.dim("Global (~/.config/opencode/agents/)"));
+      for (const agent of globalAgents) {
         const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace(".md", "") || "unknown";
         const mode = agent.agent.mode || "subagent";
-        console.log(`    ${prefix} ${S_BULLET} ${import_picocolors4.default.bold(name)} ${import_picocolors4.default.dim(`[${mode}]`)}`);
+        console.log(`  ${import_picocolors4.default.bold(name)} ${import_picocolors4.default.dim(`[${mode}]`)}`);
         if (agent.agent.description) {
-          console.log(`    ${isLast ? "  " : `${S_BAR} `}   ${import_picocolors4.default.dim(agent.agent.description)}`);
+          console.log(`    ${import_picocolors4.default.dim(agent.agent.description)}`);
         }
-      });
+      }
       console.log();
     }
   }
   if (!hasAnyAgents) {
-    R2.info(import_picocolors4.default.dim("No agents installed"));
+    R2.info("No agents installed");
     console.log();
-    console.log(import_picocolors4.default.dim("  To install an agent:"));
-    console.log(import_picocolors4.default.dim(`    npx opencode-agents add <repo>`));
+    console.log(import_picocolors4.default.dim("To install an agent:"));
+    console.log(import_picocolors4.default.dim(`  npx opencode-agents add <repo>`));
     console.log();
   }
 }
