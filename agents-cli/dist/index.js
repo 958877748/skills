@@ -27157,25 +27157,27 @@ async function addCommand(source, options2) {
   if (isGlobal === void 0) {
     isGlobal = await promptInstallLocation();
   }
-  R2.step(import_picocolors3.default.cyan(`Source: ${import_picocolors3.default.dim(`https://github.com/${source}.git`)}`));
+  console.log(`${S_STEP_ACTIVE} ${import_picocolors3.default.cyan("Source:")} ${import_picocolors3.default.dim(`https://github.com/${source}.git`)}`);
+  console.log(S_BAR);
   const s = bt2();
   s.start("Cloning repository...");
   let tempDir;
   try {
     tempDir = await fetchSource2(source);
-    s.stop(import_picocolors3.default.green("\u2713 Repository cloned"));
+    s.stop(`${import_picocolors3.default.green("\u2713")} Repository cloned`);
   } catch (err) {
-    s.stop(import_picocolors3.default.red("\u2717 Failed to clone repository"));
+    s.stop(`${import_picocolors3.default.red("\u2717")} Failed to clone repository`);
     R2.error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
+  console.log(S_BAR);
   s.start("Discovering agents...");
   let agents;
   try {
     agents = await discoverFromDirectory(tempDir);
-    s.stop(import_picocolors3.default.green(`\u2713 Found ${agents.length} agent(s)`));
+    s.stop(`${import_picocolors3.default.green("\u2713")} Found ${agents.length} agent(s)`);
   } catch (err) {
-    s.stop(import_picocolors3.default.red("\u2717 Failed to discover agents"));
+    s.stop(`${import_picocolors3.default.red("\u2717")} Failed to discover agents`);
     R2.error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
@@ -27183,6 +27185,7 @@ async function addCommand(source, options2) {
     R2.error("No agents found in the source");
     process.exit(1);
   }
+  console.log(S_BAR);
   let selectedAgents;
   if (options2.yes) {
     selectedAgents = agents;
@@ -27193,15 +27196,14 @@ async function addCommand(source, options2) {
     Ne("No agents selected, aborting");
     process.exit(0);
   }
-  console.log();
-  console.log(import_picocolors3.default.dim(`  ${S_BRANCH} Selected agents:`));
+  console.log(`${S_BAR} ${S_BRANCH} ${import_picocolors3.default.dim("Selected:")}`);
   selectedAgents.forEach((agent, index) => {
     const isLast = index === selectedAgents.length - 1;
     const prefix = isLast ? S_BRANCH_END : S_BRANCH;
     const name = agent.agent.name || basename4(agent.path, ".md");
-    console.log(`  ${S_BAR} ${prefix} ${S_BULLET} ${import_picocolors3.default.bold(name)}`);
+    console.log(`${S_BAR} ${isLast ? " " : S_BAR} ${prefix} ${S_BULLET} ${import_picocolors3.default.bold(name)}`);
   });
-  console.log();
+  console.log(S_BAR);
   s.start("Installing agents...");
   try {
     let platforms;
@@ -27221,13 +27223,13 @@ async function addCommand(source, options2) {
       selectedAgents
     };
     await installAgent(installOptions);
-    s.stop(import_picocolors3.default.green(`\u2713 Successfully installed ${selectedAgents.length} agent(s)`));
+    s.stop(`${import_picocolors3.default.green("\u2713")} Successfully installed ${selectedAgents.length} agent(s)`);
     console.log();
     console.log(import_picocolors3.default.dim("  Next steps:"));
     console.log(import_picocolors3.default.dim(`    npx opencode-agents list     View installed agents`));
     console.log();
   } catch (err) {
-    s.stop(import_picocolors3.default.red("\u2717 Installation failed"));
+    s.stop(`${import_picocolors3.default.red("\u2717")} Installation failed`);
     R2.error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   } finally {

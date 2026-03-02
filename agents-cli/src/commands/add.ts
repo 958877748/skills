@@ -8,7 +8,7 @@ import type { AgentPlatform, InstallOptions, AgentFile } from '../types/index.js
 import { basename, join } from 'path';
 import { mkdtempSync } from 'fs';
 import degit from 'degit';
-import { showLogo, S_BAR, S_BRANCH, S_BRANCH_END, S_BULLET } from '../utils/ui.js';
+import { showLogo, S_BAR, S_BRANCH, S_BRANCH_END, S_BULLET, S_STEP_ACTIVE } from '../utils/ui.js';
 
 interface AddCommandOptions {
   global: boolean | undefined;
@@ -90,8 +90,9 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     isGlobal = await promptInstallLocation();
   }
 
-  // 步骤 1: 获取源码
-  p.log.step(pc.cyan(`Source: ${pc.dim(`https://github.com/${source}.git`)}`));
+  // 使用统一的树状结构
+  console.log(`${S_STEP_ACTIVE} ${pc.cyan('Source:')} ${pc.dim(`https://github.com/${source}.git`)}`);
+  console.log(S_BAR);
   
   const s = p.spinner();
   s.start('Cloning repository...');
@@ -99,21 +100,23 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
   let tempDir: string;
   try {
     tempDir = await fetchSource(source);
-    s.stop(pc.green('✓ Repository cloned'));
+    s.stop(`${pc.green('✓')} Repository cloned`);
   } catch (err) {
-    s.stop(pc.red('✗ Failed to clone repository'));
+    s.stop(`${pc.red('✗')} Failed to clone repository`);
     p.log.error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 
+  console.log(S_BAR);
+  
   // 步骤 2: 发现 agents
   s.start('Discovering agents...');
   let agents: AgentFile[];
   try {
     agents = await discoverFromDirectory(tempDir);
-    s.stop(pc.green(`✓ Found ${agents.length} agent(s)`));
+    s.stop(`${pc.green('✓')} Found ${agents.length} agent(s)`);
   } catch (err) {
-    s.stop(pc.red('✗ Failed to discover agents'));
+    s.stop(`${pc.red('✗')} Failed to discover agents`);
     p.log.error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
@@ -123,6 +126,8 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     process.exit(1);
   }
 
+  console.log(S_BAR);
+  
   // 步骤 3: 选择 agents
   let selectedAgents: AgentFile[];
   if (options.yes) {
@@ -136,18 +141,17 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
     process.exit(0);
   }
 
-  // 显示选中的 agents - 简洁的树状结构
-  console.log();
-  console.log(pc.dim(`  ${S_BRANCH} Selected agents:`));
+  // 显示选中的 agents - 作为树的分支
+  console.log(`${S_BAR} ${S_BRANCH} ${pc.dim('Selected:')}`);
   selectedAgents.forEach((agent, index) => {
     const isLast = index === selectedAgents.length - 1;
     const prefix = isLast ? S_BRANCH_END : S_BRANCH;
     const name = agent.agent.name || basename(agent.path, '.md');
-    console.log(`  ${S_BAR} ${prefix} ${S_BULLET} ${pc.bold(name)}`);
+    console.log(`${S_BAR} ${isLast ? ' ' : S_BAR} ${prefix} ${S_BULLET} ${pc.bold(name)}`);
   });
-  console.log();
 
   // 步骤 4: 安装
+  console.log(S_BAR);
   s.start('Installing agents...');
 
   try {
@@ -172,14 +176,14 @@ export async function addCommand(source: string, options: AddCommandOptions): Pr
 
     await installAgent(installOptions);
 
-    s.stop(pc.green(`✓ Successfully installed ${selectedAgents.length} agent(s)`));
+    s.stop(`${pc.green('✓')} Successfully installed ${selectedAgents.length} agent(s)`);
     
     console.log();
     console.log(pc.dim('  Next steps:'));
     console.log(pc.dim(`    npx opencode-agents list     View installed agents`));
     console.log();
   } catch (err) {
-    s.stop(pc.red('✗ Installation failed'));
+    s.stop(`${pc.red('✗')} Installation failed`);
     p.log.error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   } finally {
