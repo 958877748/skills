@@ -23,7 +23,7 @@ async function build() {
     },
     sourcemap: true,
     minify: false,
-    external: ['inquirer'],
+    external: ['inquirer', 'os', 'path', 'fs', 'module', 'url'],
   });
 
   // Copy bin file
