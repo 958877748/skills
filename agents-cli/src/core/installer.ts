@@ -11,8 +11,6 @@ import type { AgentPlatform, AgentFile, InstallOptions } from '../types/index.js
 export async function installAgent(options: InstallOptions): Promise<void> {
   const { source, sourcePath, global, platforms, agentName, copy, selectedAgents } = options;
 
-  logger.info(`Installing agent from: ${source}`);
-
   let tempDir: string;
   let agents: AgentFile[];
 
@@ -53,7 +51,6 @@ export async function installAgent(options: InstallOptions): Promise<void> {
           } else {
             copyFileSync(sourcePath, finalPath);
           }
-          logger.success(`Copied agent "${name}" to ${finalPath}`);
         }
       }
     }

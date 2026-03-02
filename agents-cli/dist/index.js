@@ -9676,10 +9676,10 @@ var require_index_688c5d50 = __commonJS({
             throw new Error("unknown meta: " + entry.type);
         }
       }
-      abort(error2) {
+      abort(error) {
         this[ABORTED] = true;
-        this.emit("abort", error2);
-        this.warn("TAR_ABORT", error2, { recoverable: false });
+        this.emit("abort", error);
+        this.warn("TAR_ABORT", error, { recoverable: false });
       }
       write(chunk) {
         if (this[ABORTED])
@@ -14907,10 +14907,10 @@ var require_index_688c5d50 = __commonJS({
           var abs = this._makeAbs(f);
           this.cache[abs] = "FILE";
           if (abs === this.cwdAbs) {
-            var error2 = new Error(er.code + " invalid cwd " + this.cwd);
-            error2.path = this.cwd;
-            error2.code = er.code;
-            throw error2;
+            var error = new Error(er.code + " invalid cwd " + this.cwd);
+            error.path = this.cwd;
+            error.code = er.code;
+            throw error;
           }
           break;
         case "ENOENT":
@@ -15514,10 +15514,10 @@ var require_index_688c5d50 = __commonJS({
           var abs = this._makeAbs(f);
           this.cache[abs] = "FILE";
           if (abs === this.cwdAbs) {
-            var error2 = new Error(er.code + " invalid cwd " + this.cwd);
-            error2.path = this.cwd;
-            error2.code = er.code;
-            this.emit("error", error2);
+            var error = new Error(er.code + " invalid cwd " + this.cwd);
+            error.path = this.cwd;
+            error.code = er.code;
+            this.emit("error", error);
             this.abort();
           }
           break;
@@ -16393,14 +16393,14 @@ var require_index_688c5d50 = __commonJS({
           } else {
             exports3.storage.removeItem("debug");
           }
-        } catch (error2) {
+        } catch (error) {
         }
       }
       function load() {
         let r;
         try {
           r = exports3.storage.getItem("debug");
-        } catch (error2) {
+        } catch (error) {
         }
         if (!r && typeof process !== "undefined" && "env" in process) {
           r = process.env.DEBUG;
@@ -16410,7 +16410,7 @@ var require_index_688c5d50 = __commonJS({
       function localstorage() {
         try {
           return localStorage;
-        } catch (error2) {
+        } catch (error) {
         }
       }
       module3.exports = common(exports3);
@@ -16418,8 +16418,8 @@ var require_index_688c5d50 = __commonJS({
       formatters.j = function(v) {
         try {
           return JSON.stringify(v);
-        } catch (error2) {
-          return "[UnexpectedJSONParseError]: " + error2.message;
+        } catch (error) {
+          return "[UnexpectedJSONParseError]: " + error.message;
         }
       };
     });
@@ -16518,7 +16518,7 @@ var require_index_688c5d50 = __commonJS({
             221
           ];
         }
-      } catch (error2) {
+      } catch (error) {
       }
       exports3.inspectOpts = Object.keys(process.env).filter((key) => {
         return /^debug_/i.test(key);
@@ -17429,11 +17429,11 @@ var require_index_688c5d50 = __commonJS({
             hash
           };
         });
-      } catch (error2) {
+      } catch (error) {
         throw new DegitError(`could not fetch remote ${repo.url}`, {
           code: "COULD_NOT_FETCH",
           url: repo.url,
-          original: error2
+          original: error
         });
       }
     }
@@ -23421,9 +23421,9 @@ var require_async_iterator = __commonJS({
       },
       next: function next() {
         var _this = this;
-        var error2 = this[kError];
-        if (error2 !== null) {
-          return Promise.reject(error2);
+        var error = this[kError];
+        if (error !== null) {
+          return Promise.reject(error);
         }
         if (this[kEnded]) {
           return Promise.resolve(createIterResult(void 0, true));
@@ -23536,8 +23536,8 @@ var require_from = __commonJS({
       try {
         var info = gen[key](arg);
         var value = info.value;
-      } catch (error2) {
-        reject(error2);
+      } catch (error) {
+        reject(error);
         return;
       }
       if (info.done) {
@@ -24567,16 +24567,16 @@ var require_pipeline = __commonJS({
       if (streams.length < 2) {
         throw new ERR_MISSING_ARGS("streams");
       }
-      var error2;
+      var error;
       var destroys = streams.map(function(stream, i) {
         var reading = i < streams.length - 1;
         var writing = i > 0;
         return destroyer(stream, reading, writing, function(err) {
-          if (!error2) error2 = err;
+          if (!error) error = err;
           if (err) destroys.forEach(call);
           if (reading) return;
           destroys.forEach(call);
-          callback(error2);
+          callback(error);
         });
       });
       return streams.reduce(pipe);
@@ -26912,7 +26912,6 @@ var logger = {
 // src/core/installer.ts
 async function installAgent(options2) {
   const { source, sourcePath, global: global2, platforms, agentName, copy, selectedAgents } = options2;
-  logger.info(`Installing agent from: ${source}`);
   let tempDir;
   let agents;
   if (selectedAgents) {
@@ -26946,7 +26945,6 @@ async function installAgent(options2) {
           } else {
             copyFileSync2(sourcePath2, finalPath);
           }
-          logger.success(`Copied agent "${name}" to ${finalPath}`);
         }
       }
     }
@@ -27099,20 +27097,6 @@ function showBanner() {
   console.log(`  ${import_picocolors2.default.dim("$")} ${import_picocolors2.default.cyan("npx opencode-agents find")}              ${import_picocolors2.default.dim("Search for agents")}`);
   console.log();
 }
-function renderSkillCard(name, description, index) {
-  console.log();
-  console.log(`  ${S_BAR}`);
-  console.log(`  ${S_BRANCH} ${import_picocolors2.default.cyan("Agent:")} ${import_picocolors2.default.bold(name)}`);
-  console.log(`  ${S_BAR}`);
-  console.log(`  ${S_BRANCH_END} ${import_picocolors2.default.dim(description)}`);
-  console.log();
-}
-function success(message) {
-  console.log(`  ${import_picocolors2.default.green("\u2713")} ${message}`);
-}
-function error(message) {
-  console.log(`  ${import_picocolors2.default.red("\u2717")} ${message}`);
-}
 
 // src/commands/add.ts
 async function promptInstallLocation() {
@@ -27179,24 +27163,24 @@ async function addCommand(source, options2) {
   let tempDir;
   try {
     tempDir = await fetchSource2(source);
-    s.stop("Repository cloned");
+    s.stop(import_picocolors3.default.green("\u2713 Repository cloned"));
   } catch (err) {
-    s.stop("Failed to clone repository");
-    error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
+    s.stop(import_picocolors3.default.red("\u2717 Failed to clone repository"));
+    R2.error(`Failed to fetch source: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
   s.start("Discovering agents...");
   let agents;
   try {
     agents = await discoverFromDirectory(tempDir);
-    s.stop(`Found ${import_picocolors3.default.green(String(agents.length))} agent(s)`);
+    s.stop(import_picocolors3.default.green(`\u2713 Found ${agents.length} agent(s)`));
   } catch (err) {
-    s.stop("Failed to discover agents");
-    error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
+    s.stop(import_picocolors3.default.red("\u2717 Failed to discover agents"));
+    R2.error(`Failed to discover agents: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
   if (agents.length === 0) {
-    error("No agents found in the source");
+    R2.error("No agents found in the source");
     process.exit(1);
   }
   let selectedAgents;
@@ -27210,14 +27194,15 @@ async function addCommand(source, options2) {
     process.exit(0);
   }
   console.log();
-  for (const agent of selectedAgents) {
-    renderSkillCard(
-      agent.agent.name || basename4(agent.path, ".md"),
-      agent.agent.description || "No description available",
-      0
-    );
-  }
-  s.start(`Installing ${selectedAgents.length} agent(s)...`);
+  console.log(import_picocolors3.default.dim(`  ${S_BRANCH} Selected agents:`));
+  selectedAgents.forEach((agent, index) => {
+    const isLast = index === selectedAgents.length - 1;
+    const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+    const name = agent.agent.name || basename4(agent.path, ".md");
+    console.log(`  ${S_BAR} ${prefix} ${S_BULLET} ${import_picocolors3.default.bold(name)}`);
+  });
+  console.log();
+  s.start("Installing agents...");
   try {
     let platforms;
     if (options2.agent && options2.agent.length > 0) {
@@ -27236,16 +27221,14 @@ async function addCommand(source, options2) {
       selectedAgents
     };
     await installAgent(installOptions);
-    s.stop(import_picocolors3.default.green(`Successfully installed ${selectedAgents.length} agent(s)`));
+    s.stop(import_picocolors3.default.green(`\u2713 Successfully installed ${selectedAgents.length} agent(s)`));
     console.log();
-    success("Installation complete!");
-    console.log();
-    console.log(import_picocolors3.default.dim("  Try:"));
-    console.log(import_picocolors3.default.dim(`    npx opencode-agents list`));
+    console.log(import_picocolors3.default.dim("  Next steps:"));
+    console.log(import_picocolors3.default.dim(`    npx opencode-agents list     View installed agents`));
     console.log();
   } catch (err) {
-    s.stop("Installation failed");
-    error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
+    s.stop(import_picocolors3.default.red("\u2717 Installation failed"));
+    R2.error(`Failed to install agent: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   } finally {
     if (existsSync4(tempDir) && tempDir.startsWith(tmpdir2())) {
@@ -27255,6 +27238,7 @@ async function addCommand(source, options2) {
 }
 
 // src/commands/list.ts
+var import_picocolors4 = __toESM(require_picocolors(), 1);
 async function listCommand(options2) {
   let platforms;
   if (options2.agent) {
@@ -27262,24 +27246,52 @@ async function listCommand(options2) {
   } else {
     platforms = ["opencode"];
   }
-  const scope = options2.global ? "global" : "project";
+  console.log();
+  let hasAnyAgents = false;
   for (const platform of platforms) {
-    const agents = listInstalledAgents(platform, options2.global);
-    if (agents.length === 0) {
-      logger.info(`No agents found for ${platform} (${scope})`);
+    const projectAgents = listInstalledAgents(platform, false);
+    const globalAgents = listInstalledAgents(platform, true);
+    if (projectAgents.length === 0 && globalAgents.length === 0) {
       continue;
     }
-    console.log(source_default.bold(`
-${platform} agents (${scope}):
-`));
-    for (const agent of agents) {
-      const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace(".md", "") || "unknown";
-      const mode = agent.agent.mode || "subagent";
-      const description = agent.agent.description || "No description";
-      console.log(`  ${source_default.cyan(name)} ${source_default.gray(`[${mode}]`)}`);
-      console.log(`    ${source_default.dim(description)}
-`);
+    hasAnyAgents = true;
+    console.log(import_picocolors4.default.bold(import_picocolors4.default.cyan(`\u25C6 ${platform} agents`)));
+    console.log();
+    if (projectAgents.length > 0) {
+      console.log(`  ${globalAgents.length > 0 ? S_BRANCH : S_BRANCH_END} ${import_picocolors4.default.dim("Project")} ${import_picocolors4.default.dim("(./.opencode/agents/)")}`);
+      projectAgents.forEach((agent, index) => {
+        const isLast = index === projectAgents.length - 1;
+        const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+        const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace(".md", "") || "unknown";
+        const mode = agent.agent.mode || "subagent";
+        console.log(`  ${globalAgents.length > 0 ? S_BAR : "  "} ${prefix} ${S_BULLET} ${import_picocolors4.default.bold(name)} ${import_picocolors4.default.dim(`[${mode}]`)}`);
+        if (agent.agent.description) {
+          console.log(`  ${globalAgents.length > 0 ? S_BAR : "  "} ${isLast ? "  " : `${S_BAR} `}   ${import_picocolors4.default.dim(agent.agent.description)}`);
+        }
+      });
+      console.log();
     }
+    if (globalAgents.length > 0) {
+      console.log(`  ${S_BRANCH_END} ${import_picocolors4.default.dim("Global")} ${import_picocolors4.default.dim("(~/.config/opencode/agents/)")}`);
+      globalAgents.forEach((agent, index) => {
+        const isLast = index === globalAgents.length - 1;
+        const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+        const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace(".md", "") || "unknown";
+        const mode = agent.agent.mode || "subagent";
+        console.log(`    ${prefix} ${S_BULLET} ${import_picocolors4.default.bold(name)} ${import_picocolors4.default.dim(`[${mode}]`)}`);
+        if (agent.agent.description) {
+          console.log(`    ${isLast ? "  " : `${S_BAR} `}   ${import_picocolors4.default.dim(agent.agent.description)}`);
+        }
+      });
+      console.log();
+    }
+  }
+  if (!hasAnyAgents) {
+    R2.info(import_picocolors4.default.dim("No agents installed"));
+    console.log();
+    console.log(import_picocolors4.default.dim("  To install an agent:"));
+    console.log(import_picocolors4.default.dim(`    npx opencode-agents add <repo>`));
+    console.log();
   }
 }
 

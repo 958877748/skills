@@ -1,8 +1,8 @@
-import chalk from 'chalk';
+import * as p from '@clack/prompts';
+import pc from 'picocolors';
 import { listInstalledAgents } from '../core/installer.js';
-import { detectPlatforms } from '../utils/filesystem.js';
-import { logger } from '../utils/logger.js';
 import type { AgentPlatform } from '../types/index.js';
+import { S_BAR, S_BRANCH, S_BRANCH_END, S_BULLET } from '../utils/ui.js';
 
 interface ListCommandOptions {
   global: boolean;
@@ -18,25 +18,71 @@ export async function listCommand(options: ListCommandOptions): Promise<void> {
     platforms = ['opencode'];
   }
 
-  const scope = options.global ? 'global' : 'project';
+  console.log();
+  
+  let hasAnyAgents = false;
   
   for (const platform of platforms) {
-    const agents = listInstalledAgents(platform, options.global);
+    const projectAgents = listInstalledAgents(platform, false);
+    const globalAgents = listInstalledAgents(platform, true);
     
-    if (agents.length === 0) {
-      logger.info(`No agents found for ${platform} (${scope})`);
+    if (projectAgents.length === 0 && globalAgents.length === 0) {
       continue;
     }
-
-    console.log(chalk.bold(`\n${platform} agents (${scope}):\n`));
     
-    for (const agent of agents) {
-      const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace('.md', '') || 'unknown';
-      const mode = agent.agent.mode || 'subagent';
-      const description = agent.agent.description || 'No description';
+    hasAnyAgents = true;
+    
+    console.log(pc.bold(pc.cyan(`◆ ${platform} agents`)));
+    console.log();
+    
+    // 项目级别
+    if (projectAgents.length > 0) {
+      console.log(`  ${globalAgents.length > 0 ? S_BRANCH : S_BRANCH_END} ${pc.dim('Project')} ${pc.dim('(./.opencode/agents/)')}`);
       
-      console.log(`  ${chalk.cyan(name)} ${chalk.gray(`[${mode}]`)}`);
-      console.log(`    ${chalk.dim(description)}\n`);
+      projectAgents.forEach((agent, index) => {
+        const isLast = index === projectAgents.length - 1;
+        const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+        
+        const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace('.md', '') || 'unknown';
+        const mode = agent.agent.mode || 'subagent';
+        
+        console.log(`  ${globalAgents.length > 0 ? S_BAR : '  '} ${prefix} ${S_BULLET} ${pc.bold(name)} ${pc.dim(`[${mode}]`)}`);
+        
+        if (agent.agent.description) {
+          console.log(`  ${globalAgents.length > 0 ? S_BAR : '  '} ${isLast ? '  ' : `${S_BAR} `}   ${pc.dim(agent.agent.description)}`);
+        }
+      });
+      
+      console.log();
     }
+    
+    // 全局级别
+    if (globalAgents.length > 0) {
+      console.log(`  ${S_BRANCH_END} ${pc.dim('Global')} ${pc.dim('(~/.config/opencode/agents/)')}`);
+      
+      globalAgents.forEach((agent, index) => {
+        const isLast = index === globalAgents.length - 1;
+        const prefix = isLast ? S_BRANCH_END : S_BRANCH;
+        
+        const name = agent.agent.name || agent.path.split(/[/\\]/).pop()?.replace('.md', '') || 'unknown';
+        const mode = agent.agent.mode || 'subagent';
+        
+        console.log(`    ${prefix} ${S_BULLET} ${pc.bold(name)} ${pc.dim(`[${mode}]`)}`);
+        
+        if (agent.agent.description) {
+          console.log(`    ${isLast ? '  ' : `${S_BAR} `}   ${pc.dim(agent.agent.description)}`);
+        }
+      });
+      
+      console.log();
+    }
+  }
+  
+  if (!hasAnyAgents) {
+    p.log.info(pc.dim('No agents installed'));
+    console.log();
+    console.log(pc.dim('  To install an agent:'));
+    console.log(pc.dim(`    npx opencode-agents add <repo>`));
+    console.log();
   }
 }
