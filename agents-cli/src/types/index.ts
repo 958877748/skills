@@ -70,9 +70,11 @@ export type AgentPlatform =
 
 export interface InstallOptions {
   source: string;
+  sourcePath?: string;
   global: boolean;
   platforms: AgentPlatform[];
   agentName?: string;
   copy: boolean;
   yes: boolean;
+  selectedAgents?: AgentFile[];
 }

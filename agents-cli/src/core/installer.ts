@@ -9,29 +9,39 @@ import { logger } from '../utils/logger.js';
 import type { AgentPlatform, AgentFile, InstallOptions } from '../types/index.js';
 
 export async function installAgent(options: InstallOptions): Promise<void> {
-  const { source, global, platforms, agentName, copy } = options;
-  
+  const { source, sourcePath, global, platforms, agentName, copy, selectedAgents } = options;
+
   logger.info(`Installing agent from: ${source}`);
 
-  const tempDir = await fetchSource(source);
-  
-  try {
-    const agents = await discoverFromDirectory(tempDir);
-    
+  let tempDir: string;
+  let agents: AgentFile[];
+
+  if (selectedAgents) {
+    tempDir = sourcePath || source;
+    agents = selectedAgents;
+  } else {
+    tempDir = await fetchSource(source);
+    agents = await discoverFromDirectory(tempDir);
+
     if (agents.length === 0) {
+      if (existsSync(tempDir) && tempDir.startsWith(tmpdir())) {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
       throw new Error('No agents found in the source');
     }
+  }
 
+  try {
     for (const platform of platforms) {
       const targetPaths = getPlatformPaths(platform, global);
-      
+
       for (const targetPath of targetPaths) {
         ensureDir(targetPath);
-        
+
         for (const agentFile of agents) {
           const name = agentName || agentFile.agent.name || basename(agentFile.path, '.md');
           const finalPath = join(targetPath, `${name}.md`);
-          
+
           if (existsSync(finalPath) && !options.yes) {
             logger.warn(`Agent "${name}" already exists at ${finalPath}`);
             continue;
@@ -46,13 +56,14 @@ export async function installAgent(options: InstallOptions): Promise<void> {
             }
             logger.success(`Copied agent "${name}" to ${finalPath}`);
           } else {
-            const sourceDir = tempDir;
+            const sourcePath = agentFile.path;
+            const linkType = isDirectory(sourcePath) ? 'dir' : 'file';
             try {
-              symlinkSync(sourceDir, finalPath, 'dir');
+              symlinkSync(sourcePath, finalPath, linkType);
               logger.success(`Symlinked agent "${name}" to ${finalPath}`);
             } catch (err) {
               logger.warn(`Failed to create symlink, copying instead: ${err}`);
-              copyDirectory(sourceDir, join(targetPath, name));
+              copyDirectory(sourcePath, join(targetPath, name));
               logger.success(`Copied agent "${name}" to ${targetPath}`);
             }
           }
@@ -60,7 +71,7 @@ export async function installAgent(options: InstallOptions): Promise<void> {
       }
     }
   } finally {
-    if (existsSync(tempDir) && tempDir.startsWith(tmpdir())) {
+    if (!selectedAgents && existsSync(tempDir) && tempDir.startsWith(tmpdir())) {
       rmSync(tempDir, { recursive: true, force: true });
     }
   }
