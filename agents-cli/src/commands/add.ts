@@ -53,9 +53,7 @@ async function promptSelectAgents(agents: AgentFile[]): Promise<AgentFile[]> {
 }
 
 async function fetchSource(source: string): Promise<string> {
-  const { tmpdir } = await import('os');
   const { mkdtempSync, join } = await import('path');
-  const { rmSync } = await import('fs');
   const degit = await import('degit');
 
   const tempDir = mkdtempSync(join(tmpdir(), 'agents-cli-'));
