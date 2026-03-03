@@ -261,7 +261,7 @@ function checkPluginStatus() {
 
 /**
  * 触发 Cocos Creator 编辑器刷新资源
- * 先尝试调用 CLI Helper 插件 (7455端口)，失败则调用编辑器默认接口
+ * 智能判断：如果修改的场景就是当前打开的场景，才重新打开；否则只刷新资源
  * 编辑器有可能没打开，调用失败不报错
  * @param {string} scenePath - 场景文件路径（必须）
  */
@@ -272,21 +272,49 @@ function refreshEditor(scenePath) {
         return;
     }
     
-    const { execSync } = require('child_process');
     const path = require('path');
+    const http = require('http');
     
     // 转换场景路径为 db:// 格式
-    let sceneUrl = null;
-    if (scenePath) {
-        const assetsPath = path.dirname(scenePath);
-        const projectPath = path.dirname(assetsPath);
-        const relativePath = path.relative(projectPath, scenePath).replace(/\\/g, '/');
-        sceneUrl = 'db://' + relativePath.replace(/^assets\//, 'assets/');
-    }
+    const assetsPath = path.dirname(scenePath);
+    const projectPath = path.dirname(assetsPath);
+    const relativePath = path.relative(projectPath, scenePath).replace(/\\/g, '/');
+    const targetSceneUrl = 'db://' + relativePath.replace(/^assets\//, 'assets/');
     
-    // 先尝试调用插件
-    try {
-        const http = require('http');
+    // 先查询当前打开的场景
+    const getCurrentScene = () => {
+        return new Promise((resolve) => {
+            const options = {
+                hostname: 'localhost',
+                port: 7455,
+                path: '/current-scene',
+                method: 'GET'
+            };
+            
+            const req = http.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        const result = JSON.parse(data);
+                        resolve(result.sceneUrl || null);
+                    } catch (e) {
+                        resolve(null);
+                    }
+                });
+            });
+            
+            req.on('error', () => resolve(null));
+            req.setTimeout(3000, () => {
+                req.destroy();
+                resolve(null);
+            });
+            req.end();
+        });
+    };
+    
+    // 发送刷新请求
+    const sendRefreshRequest = (sceneUrl) => {
         const postData = sceneUrl ? JSON.stringify({ sceneUrl }) : '';
         
         const options = {
@@ -301,7 +329,7 @@ function refreshEditor(scenePath) {
         };
         
         const req = http.request(options, (res) => {
-            // 忽略响应，只发送请求
+            // 忽略响应
         });
         
         req.on('error', () => {
@@ -312,20 +340,18 @@ function refreshEditor(scenePath) {
             req.write(postData);
         }
         req.end();
-        return;
-    } catch (e) {
-        // 插件未启动，尝试编辑器默认接口
-    }
+    };
     
-    // 尝试调用编辑器默认接口
-    try {
-        execSync('curl.exe -s http://localhost:7456/update-db', { 
-            timeout: 3000,
-            windowsHide: true
-        });
-    } catch (e) {
-        // 编辑器没打开，静默处理
-    }
+    // 执行刷新逻辑
+    getCurrentScene().then(currentSceneUrl => {
+        if (currentSceneUrl && currentSceneUrl === targetSceneUrl) {
+            // 是当前打开的场景，重新打开
+            sendRefreshRequest(targetSceneUrl);
+        } else {
+            // 不是当前场景，只刷新资源
+            sendRefreshRequest(null);
+        }
+    });
 }
 
 /**

@@ -51,6 +51,30 @@ module.exports = {
                     return;
                 }
 
+                // 获取当前场景接口
+                if (req.url === '/current-scene' && req.method === 'GET') {
+                    Editor.Ipc.sendToPanel('scene', 'scene:query-hierarchy', (err, sceneId, hierarchy) => {
+                        if (err || !sceneId) {
+                            res.end(JSON.stringify({
+                                success: false,
+                                error: err ? err.message : 'No scene opened',
+                                sceneUrl: null,
+                                sceneId: null
+                            }));
+                            return;
+                        }
+                        
+                        // 将 sceneId (UUID) 转换为 URL
+                        const sceneUrl = Editor.assetdb.uuidToUrl(sceneId);
+                        res.end(JSON.stringify({
+                            success: true,
+                            sceneUrl: sceneUrl,
+                            sceneId: sceneId
+                        }));
+                    });
+                    return;
+                }
+
                 // 刷新接口
                 if (req.url === '/refresh' && req.method === 'POST') {
                     parseBody(req, (body) => {
