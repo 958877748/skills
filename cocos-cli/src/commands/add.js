@@ -1,14 +1,38 @@
 /**
- * add 命令 - 添加节点  
- * 按照 Cocos Creator 的深度优先遍历顺序插入节点
+ * add 命令 - 添加节点（支持场景和预制体）
+ * 
+ * 预制体正确结构（深度优先遍历）：
+ *   节点 → 子节点(递归) → 组件 → PrefabInfo
+ * 
+ * 示例：
+ * [1] Node (根) _prefab -> [最后]
+ * [2] Node (子1) _prefab -> [6]
+ * [3] Node (孙) _prefab -> [5]
+ * [4] Component (孙的组件)
+ * [5] PrefabInfo (孙的)
+ * [6] Component (子1的组件)
+ * [7] PrefabInfo (子1的)
+ * [8] PrefabInfo (根的，在最后)
  */
 
-const { loadScene, saveScene, buildMaps, findNodeIndex, refreshEditor } = require('../lib/fire-utils');
+const { loadScene, saveScene, buildMaps, refreshEditor, isPrefab, generateFileId } = require('../lib/fire-utils');
 const { Components, createNodeData } = require('../lib/components');
 
 /**
- * 获取节点及其所有子树的最后一个索引（用于确定插入位置）
- * 按照深度优先遍历，返回该节点子树的结束位置
+ * 获取根节点 PrefabInfo 的索引（预制体最后一个元素）
+ */
+function getRootPrefabInfoIndex(data) {
+    for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i].__type__ === 'cc.PrefabInfo') {
+            const rootRef = data[i].root?.__id__;
+            if (rootRef === 1) return i;
+        }
+    }
+    return data.length - 1;
+}
+
+/**
+ * 获取节点子树的结束索引（子节点 → 组件 → PrefabInfo）
  */
 function getSubtreeEndIndex(data, nodeIndex) {
     const node = data[nodeIndex];
@@ -24,33 +48,35 @@ function getSubtreeEndIndex(data, nodeIndex) {
         }
     }
     
-    // 处理组件（组件在子节点之后）
+    // 处理组件
     if (node._components) {
         for (const compRef of node._components) {
             lastIndex = Math.max(lastIndex, compRef.__id__);
         }
     }
     
+    // PrefabInfo 在最后（根节点的除外，它在整个数组最后）
+    if (node._prefab && nodeIndex !== 1) {
+        lastIndex = Math.max(lastIndex, node._prefab.__id__);
+    }
+    
     return lastIndex;
 }
 
 /**
- * 重建所有 __id__ 引用（插入元素后索引变化）
- * 返回新旧索引的映射表
+ * 重建所有 __id__ 引用
  */
-function rebuildReferencesForInsert(data, insertIndex) {
+function rebuildReferences(data, insertIndex, count) {
     const indexMap = {};
     
-    // 构建映射：旧索引 -> 新索引
     for (let oldIndex = 0; oldIndex < data.length; oldIndex++) {
         if (oldIndex < insertIndex) {
             indexMap[oldIndex] = oldIndex;
         } else {
-            indexMap[oldIndex] = oldIndex + 1;
+            indexMap[oldIndex] = oldIndex + count;
         }
     }
     
-    // 更新所有 __id__ 引用
     function updateRef(obj) {
         if (!obj || typeof obj !== 'object') return;
         
@@ -75,11 +101,11 @@ function rebuildReferencesForInsert(data, insertIndex) {
 
 function run(args) {
     if (args.length < 3) {
-        console.log(JSON.stringify({ error: '用法: cocos2.4 add <场景文件路径> <父节点> <节点名称> [选项]' }));
+        console.log(JSON.stringify({ error: '用法: cocos2.4 add <场景.fire | 预制体.prefab> <父节点索引> <节点名称> [选项]' }));
         return;
     }
     
-    const scenePath = args[0];
+    const filePath = args[0];
     const parentRef = args[1];
     const nodeName = args[2];
     
@@ -95,20 +121,21 @@ function run(args) {
             else if (key === 'height') options.height = parseFloat(value) || 0;
             else if (key === 'at') options.at = parseInt(value);
             else if (key === 'active') options.active = value !== 'false';
+            else if (key === 'color') options.color = value;
+            else if (key === 'fontSize') options.fontSize = parseInt(value) || 40;
+            else if (key === 'string') options.string = value || '';
         }
     });
     
     try {
-        const data = loadScene(scenePath);
-        const { indexMap } = buildMaps(data);
+        const data = loadScene(filePath);
+        const { prefab } = buildMaps(data);
         
-        // 父节点必须使用数字索引
         if (!/^\d+$/.test(parentRef)) {
             console.log(JSON.stringify({ error: '父节点必须使用数字索引，请先用 tree 命令查看节点索引' }));
             return;
         }
         
-        // 查找父节点
         const parentIndex = parseInt(parentRef);
         
         if (parentIndex < 0 || parentIndex >= data.length || !data[parentIndex]) {
@@ -117,115 +144,213 @@ function run(args) {
         }
         
         const parentNode = data[parentIndex];
+        const isRootChild = prefab && parentIndex === 1;
         
-        // 确定插入位置
-        // 按照 _children 顺序，找到应该插入的位置
+        // 确定插入位置：紧跟父节点之后（在父节点的子节点/组件/PrefabInfo之前）
         let insertIndex;
+        
         if (!parentNode._children || parentNode._children.length === 0) {
-            // 父节点没有子节点，新节点紧跟父节点之后
+            // 父节点还没有子节点，插入到父节点之后
             insertIndex = parentIndex + 1;
         } else {
-            // 根据 --at 参数确定插入位置
+            // 父节点已有子节点，根据 --at 参数确定位置
             const targetPosition = options.at >= 0 ? options.at : parentNode._children.length;
             
             if (targetPosition === 0) {
-                // 插入到第一个子节点位置，紧跟父节点之后
-                insertIndex = parentIndex + 1;
+                // 插入到第一个子节点之前
+                insertIndex = parentNode._children[0].__id__;
             } else if (targetPosition >= parentNode._children.length) {
-                // 插入到最后，在所有现有子节点之后
+                // 插入到最后一个子节点之后
                 const lastChildRef = parentNode._children[parentNode._children.length - 1];
                 insertIndex = getSubtreeEndIndex(data, lastChildRef.__id__) + 1;
             } else {
-                // 插入到中间某个位置
-                const beforeChildRef = parentNode._children[targetPosition - 1];
-                insertIndex = getSubtreeEndIndex(data, beforeChildRef.__id__) + 1;
+                // 插入到中间
+                insertIndex = parentNode._children[targetPosition].__id__;
             }
         }
         
-        // 创建新节点
-        const newNode = createNodeData(nodeName, parentIndex, options);
+        let newNodeIndex;
         
-        // 在正确位置插入新节点
-        data.splice(insertIndex, 0, newNode);
-        
-        // 重建索引引用（因为插入了新元素，后续索引都+1）
-        const insertIndexMap = rebuildReferencesForInsert(data, insertIndex);
-        
-        // 新节点的实际索引
-        const newNodeIndex = insertIndex;
-        
-        // 更新新节点的 _parent 引用（使用映射后的父节点索引）
-        const newParentIndex = insertIndexMap[parentIndex] !== undefined ? insertIndexMap[parentIndex] : parentIndex;
-        newNode._parent = { "__id__": newParentIndex };
-        
-        // 添加组件（如果有）
-        let componentIndex = -1;
-        if (options.type) {
-            const compData = Components[options.type]?.(newNodeIndex);
+        if (prefab) {
+            // 预制体模式
+            // 找到根节点的 PrefabInfo
+            const rootPrefabInfoOldIdx = getRootPrefabInfoIndex(data);
+            const rootPrefabInfo = data[rootPrefabInfoOldIdx];
+            
+            // 创建节点
+            const nodeData = {
+                "__type__": "cc.Node",
+                "_name": nodeName,
+                "_objFlags": 0,
+                "_parent": { "__id__": parentIndex },
+                "_children": [],
+                "_active": options.active !== false,
+                "_components": [],
+                "_prefab": null,
+                "_opacity": 255,
+                "_color": parseColor(options.color) || { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 },
+                "_contentSize": { "__type__": "cc.Size", "width": options.width || 0, "height": options.height || 0 },
+                "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 },
+                "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [options.x || 0, options.y || 0, 0, 0, 0, 0, 1, 1, 1, 1] },
+                "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 },
+                "_skewX": 0,
+                "_skewY": 0,
+                "_is3DNode": false,
+                "_groupIndex": 0,
+                "groupIndex": 0,
+                "_id": ""
+            };
+            
+            // 创建组件（如果有）
+            let compData = null;
+            if (options.type) {
+                compData = Components[options.type]?.(insertIndex);
+                // 修改组件属性
+                if (compData) {
+                    if (options.type === 'label') {
+                        if (options.fontSize) {
+                            compData._fontSize = options.fontSize;
+                            compData._lineHeight = options.fontSize;
+                        }
+                        if (options.string) {
+                            compData._string = options.string;
+                            compData._N$string = options.string;
+                        }
+                    }
+                }
+            }
+            
+            // 创建 PrefabInfo
+            const prefabInfo = {
+                "__type__": "cc.PrefabInfo",
+                "root": { "__id__": 1 },
+                "asset": { "__id__": 0 },
+                "fileId": generateFileId(),
+                "sync": false
+            };
+            
+            // 构建要插入的元素：节点 → 组件 → PrefabInfo
+            const itemsToInsert = [nodeData];
+            if (compData) itemsToInsert.push(compData);
+            itemsToInsert.push(prefabInfo);
+            
+            // 如果是根节点的子节点，先移除根 PrefabInfo
+            if (isRootChild) {
+                // 如果插入位置在根 PrefabInfo 之后，需要调整
+                if (insertIndex > rootPrefabInfoOldIdx) {
+                    insertIndex--;
+                }
+                data.splice(rootPrefabInfoOldIdx, 1);
+            }
+            
+            // 插入元素
+            for (let i = 0; i < itemsToInsert.length; i++) {
+                data.splice(insertIndex + i, 0, itemsToInsert[i]);
+            }
+            
+            // 重建引用
+            rebuildReferences(data, insertIndex, itemsToInsert.length);
+            
+            newNodeIndex = insertIndex;
+            
+            // 设置引用
             if (compData) {
-                // 组件应该放在新节点子树之后（这里新节点没有子节点，所以紧跟节点后）
-                const compInsertIndex = newNodeIndex + 1;
-                data.splice(compInsertIndex, 0, compData);
-                
-                // 再次重建引用
-                rebuildReferencesForInsert(data, compInsertIndex);
-                
-                componentIndex = compInsertIndex;
-                newNode._components.push({ "__id__": componentIndex });
+                compData.node = { "__id__": newNodeIndex };
+                nodeData._components.push({ "__id__": newNodeIndex + 1 });
+                nodeData._prefab = { "__id__": newNodeIndex + 2 };
+            } else {
+                nodeData._prefab = { "__id__": newNodeIndex + 1 };
+            }
+            
+            // 如果是根节点的子节点，把根 PrefabInfo 添加到最后
+            if (isRootChild) {
+                data.push(rootPrefabInfo);
+                data[1]._prefab = { "__id__": data.length - 1 };
+            }
+            
+        } else {
+            // 场景模式：节点 + 组件
+            const newNode = createNodeData(nodeName, parentIndex, options);
+            
+            if (options.color) {
+                const color = parseColor(options.color);
+                if (color) newNode._color = color;
+            }
+            
+            const itemsToInsert = [newNode];
+            
+            let compData = null;
+            if (options.type) {
+                compData = Components[options.type]?.(insertIndex);
+                // 修改组件属性
+                if (compData) {
+                    if (options.type === 'label') {
+                        if (options.fontSize) {
+                            compData._fontSize = options.fontSize;
+                            compData._lineHeight = options.fontSize;
+                        }
+                        if (options.string) {
+                            compData._string = options.string;
+                            compData._N$string = options.string;
+                        }
+                    }
+                }
+                if (compData) itemsToInsert.push(compData);
+            }
+            
+            for (let i = 0; i < itemsToInsert.length; i++) {
+                data.splice(insertIndex + i, 0, itemsToInsert[i]);
+            }
+            
+            rebuildReferences(data, insertIndex, itemsToInsert.length);
+            
+            newNodeIndex = insertIndex;
+            
+            if (compData) {
+                compData.node = { "__id__": newNodeIndex };
+                newNode._components.push({ "__id__": newNodeIndex + 1 });
             }
         }
         
         // 更新父节点的 _children
         if (!parentNode._children) parentNode._children = [];
-        
         const insertPosition = options.at >= 0 ? options.at : parentNode._children.length;
         parentNode._children.splice(insertPosition, 0, { "__id__": newNodeIndex });
         
-        // 保存场景
-        saveScene(scenePath, data);
+        // 保存文件
+        saveScene(filePath, data);
         
-        // 触发编辑器刷新（传入场景路径以重新打开场景）
-        refreshEditor(scenePath);
+        // 触发编辑器刷新
+        refreshEditor(filePath);
         
-        // 构建节点树（类似 tree 命令）
-        function buildTree(nodeIndex, prefix = '', isLast = true, isRoot = true) {
-            const node = data[nodeIndex];
-            if (!node) return '';
-            
-            const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
-            const active = node._active !== false ? '●' : '○';
-            let result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
-            
-            // 添加组件信息
-            if (node._components && node._components.length > 0) {
-                const comps = node._components.map(c => {
-                    const comp = data[c.__id__];
-                    if (!comp) return `? #${c.__id__}`;
-                    return `${comp.__type__.replace('cc.', '')} #${c.__id__}`;
-                }).join(', ');
-                result += ` (${comps})`;
-            }
-            
-            result += '\n';
-            
-            // 处理子节点
-            if (node._children && node._children.length > 0) {
-                node._children.forEach((childRef, idx) => {
-                    const childIsLast = idx === node._children.length - 1;
-                    const childPrefix = prefix + (isRoot ? '' : (isLast ? '    ' : '│   '));
-                    result += buildTree(childRef.__id__, childPrefix, childIsLast, false);
-                });
-            }
-            
-            return result;
-        }
+        console.log(JSON.stringify({ 
+            success: true, 
+            nodeIndex: newNodeIndex,
+            name: nodeName,
+            parent: parentRef,
+            type: prefab ? 'prefab' : 'scene'
+        }));
         
-        const treeStr = buildTree(1);
-        
-        console.log(treeStr);
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));
     }
+}
+
+function parseColor(colorStr) {
+    if (!colorStr) return null;
+    let color = colorStr;
+    if (typeof color === 'string') {
+        if (color.startsWith('#')) color = color.slice(1);
+        if (color.length === 6) {
+            const r = parseInt(color.slice(0, 2), 16);
+            const g = parseInt(color.slice(2, 4), 16);
+            const b = parseInt(color.slice(4, 6), 16);
+            if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                return { "__type__": "cc.Color", r, g, b, a: 255 };
+            }
+        }
+    }
+    return null;
 }
 
 module.exports = { run };

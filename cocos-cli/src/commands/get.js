@@ -123,7 +123,7 @@ function extractComponentProps(comp) {
 
 function run(args) {
     if (args.length < 2) {
-        console.log(JSON.stringify({ error: '用法: cocos2.4 get <场景文件路径> <节点索引|名称>' }));
+        console.log(JSON.stringify({ error: '用法: cocos2.4 get <场景.fire | 预制体.prefab> <节点索引|名称>' }));
         return;
     }
     

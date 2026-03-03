@@ -1,17 +1,24 @@
 /**
- * Fire 文件工具模块 
- * 提供直接读取和操作 .fire 场景文件的功能
+ * Fire/Prefab 文件工具模块 
+ * 提供直接读取和操作 .fire 场景文件和 .prefab 预制体文件的功能
  */
 
 const fs = require('fs');
 const path = require('path');
 
 /**
- * 加载场景文件
+ * 检测是否为预制体文件
+ */
+function isPrefab(data) {
+    return data[0]?.__type__ === 'cc.Prefab';
+}
+
+/**
+ * 加载场景/预制体文件
  */
 function loadScene(scenePath) {
     if (!fs.existsSync(scenePath)) {
-        throw new Error(`场景文件不存在: ${scenePath}`);
+        throw new Error(`文件不存在: ${scenePath}`);
     }
     
     const content = fs.readFileSync(scenePath, 'utf8');
@@ -19,22 +26,28 @@ function loadScene(scenePath) {
 }
 
 /**
- * 保存场景文件
+ * 保存场景/预制体文件
  */
 function saveScene(scenePath, data) {
     fs.writeFileSync(scenePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
 /**
- * 构建 ID 和索引映射
+ * 构建 ID 和索引映射（自动适配场景和预制体）
  */
 function buildMaps(data) {
     const idMap = {};    // _id -> index
-    const indexMap = {}; // index -> { _id, name, path }
+    const indexMap = {}; // index -> { _id, name, path, type }
+    const prefab = isPrefab(data);
     
     function traverse(nodeIndex, parentPath = '') {
         const node = data[nodeIndex];
         if (!node) return;
+        
+        // 跳过非节点类型
+        if (!node.__type__?.startsWith('cc.Node') && node.__type__ !== 'cc.Scene') {
+            return;
+        }
         
         const nodeId = node._id;
         if (nodeId) {
@@ -59,12 +72,15 @@ function buildMaps(data) {
         }
     }
     
-    // 从 Scene 开始遍历（索引 1）
-    if (data[1]) {
+    if (prefab) {
+        // 预制体：从索引 1（根节点）开始遍历
+        traverse(1);
+    } else {
+        // 场景：从索引 1（Scene）开始遍历
         traverse(1);
     }
     
-    return { idMap, indexMap };
+    return { idMap, indexMap, prefab };
 }
 
 /**
@@ -413,50 +429,188 @@ function loadScriptMap(scenePath) {
 }
 
 /**
- * 构建节点树输出
+ * 构建节点树输出（自动适配场景和预制体）
  */
 function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoot = true) {
     const node = data[nodeIndex];
     if (!node) return '';
     
+    // 跳过 Scene 类型（场景根节点）
+    const isSceneRoot = node.__type__ === 'cc.Scene';
     const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
     const active = node._active !== false ? '●' : '○';
     const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
     
-    let result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
+    let result = '';
     
-    // 添加组件信息
-    if (node._components && node._components.length > 0) {
-        const comps = node._components.map(c => {
-            const comp = data[c.__id__];
-            if (!comp) return `? #${c.__id__}`;
-            const typeName = comp.__type__;
-            let displayName;
-            if (uuidRegex.test(typeName)) {
-                const scriptInfo = scriptMap[typeName];
-                displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '⚠️MissingScript';
-            } else if (typeName === 'MissingScript') {
-                displayName = '⚠️MissingScript';
-            } else {
-                displayName = typeName.replace('cc.', '');
-            }
-            return `${displayName} #${c.__id__}`;
-        }).join(', ');
-        result += ` (${comps})`;
+    // 场景根节点特殊处理
+    if (isSceneRoot) {
+        result = prefix + '🎬 Scene\n';
+    } else {
+        result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
+        
+        // 添加组件信息
+        if (node._components && node._components.length > 0) {
+            const comps = node._components.map(c => {
+                const comp = data[c.__id__];
+                if (!comp) return `? #${c.__id__}`;
+                const typeName = comp.__type__;
+                let displayName;
+                if (uuidRegex.test(typeName)) {
+                    const scriptInfo = scriptMap[typeName];
+                    displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '⚠️MissingScript';
+                } else if (typeName === 'MissingScript') {
+                    displayName = '⚠️MissingScript';
+                } else {
+                    displayName = typeName.replace('cc.', '');
+                }
+                return `${displayName} #${c.__id__}`;
+            }).join(', ');
+            result += ` (${comps})`;
+        }
+        
+        result += '\n';
     }
-    
-    result += '\n';
     
     // 处理子节点
     if (node._children && node._children.length > 0) {
         node._children.forEach((childRef, idx) => {
             const childIsLast = idx === node._children.length - 1;
-            const childPrefix = prefix + (isRoot ? '' : (isLast ? '    ' : '│   '));
-            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, false);
+            const childPrefix = prefix + (isSceneRoot ? '' : (isRoot ? '' : (isLast ? '    ' : '│   ')));
+            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, isSceneRoot);
         });
     }
     
     return result;
+}
+
+/**
+ * 生成 fileId（用于 PrefabInfo）
+ */
+function generateFileId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '';
+    for (let i = 0; i < 22; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+/**
+ * 创建新预制体
+ * @param {string} name - 预制体名称
+ * @returns {Array} - 预制体数据
+ * 
+ * 预制体结构说明：
+ * [0] cc.Prefab - 预制体元数据
+ * [1] cc.Node - 根节点，_prefab 指向最后一个 PrefabInfo
+ * [2] cc.PrefabInfo - 根节点的 PrefabInfo（在最后）
+ * 
+ * 当添加子节点时，结构变为：
+ * [0] cc.Prefab
+ * [1] cc.Node (根) _prefab -> [N]
+ * [2] cc.Node (子1) _prefab -> [3]
+ * [3] cc.PrefabInfo (子1的)
+ * ...
+ * [N] cc.PrefabInfo (根节点的，在最后)
+ */
+function createPrefab(name) {
+    const fileId = generateFileId();
+    return [
+        {
+            "__type__": "cc.Prefab",
+            "_name": "",
+            "_objFlags": 0,
+            "_native": "",
+            "data": { "__id__": 1 },
+            "optimizationPolicy": 0,
+            "asyncLoadAssets": false,
+            "readonly": false
+        },
+        {
+            "__type__": "cc.Node",
+            "_name": name,
+            "_objFlags": 0,
+            "_parent": null,
+            "_children": [],
+            "_active": true,
+            "_components": [],
+            "_prefab": { "__id__": 2 },  // 指向最后的 PrefabInfo
+            "_opacity": 255,
+            "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 },
+            "_contentSize": { "__type__": "cc.Size", "width": 0, "height": 0 },
+            "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 },
+            "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] },
+            "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 },
+            "_skewX": 0,
+            "_skewY": 0,
+            "_is3DNode": false,
+            "_groupIndex": 0,
+            "groupIndex": 0,
+            "_id": ""
+        },
+        {
+            "__type__": "cc.PrefabInfo",
+            "root": { "__id__": 1 },
+            "asset": { "__id__": 0 },
+            "fileId": fileId,
+            "sync": false
+        }
+    ];
+}
+
+/**
+ * 创建预制体节点数据（带 PrefabInfo）
+ * @param {string} name - 节点名称
+ * @param {number} parentId - 父节点索引
+ * @param {number} rootId - 预制体根节点索引
+ * @param {object} options - 可选参数
+ */
+function createPrefabNodeData(name, parentId, rootId, options = {}) {
+    const fileId = generateFileId();
+    const nodeIndex = -1; // 占位，插入时确定
+    const prefabInfoIndex = nodeIndex + 1; // PrefabInfo 紧跟节点
+    
+    const nodeData = {
+        "__type__": "cc.Node",
+        "_name": name,
+        "_objFlags": 0,
+        "_parent": { "__id__": parentId },
+        "_children": [],
+        "_active": options.active !== false,
+        "_components": [],
+        "_prefab": { "__id__": prefabInfoIndex },
+        "_opacity": 255,
+        "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 },
+        "_contentSize": { "__type__": "cc.Size", "width": options.width || 0, "height": options.height || 0 },
+        "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 },
+        "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [options.x || 0, options.y || 0, 0, 0, 0, 0, 1, 1, 1, 1] },
+        "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 },
+        "_skewX": 0,
+        "_skewY": 0,
+        "_is3DNode": false,
+        "_groupIndex": 0,
+        "groupIndex": 0,
+        "_id": ""
+    };
+    
+    const prefabInfo = {
+        "__type__": "cc.PrefabInfo",
+        "root": { "__id__": rootId },
+        "asset": { "__id__": 0 },
+        "fileId": fileId,
+        "sync": false
+    };
+    
+    return { nodeData, prefabInfo };
+}
+
+/**
+ * 获取预制体根节点索引
+ */
+function getPrefabRootIndex(data) {
+    if (!isPrefab(data)) return null;
+    return 1; // 预制体根节点固定在索引 1
 }
 
 module.exports = {
@@ -471,5 +625,10 @@ module.exports = {
     installPlugin,
     checkPluginStatus,
     loadScriptMap,
-    buildTree
+    buildTree,
+    isPrefab,
+    createPrefab,
+    createPrefabNodeData,
+    getPrefabRootIndex,
+    generateFileId
 };

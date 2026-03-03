@@ -15,26 +15,28 @@ const commands = {
     'add-component': '../src/commands/add-component',
     'remove': '../src/commands/remove',
     delete: '../src/commands/delete',
-    build: '../src/commands/build'
+    build: '../src/commands/build',
+    'prefab-create': '../src/commands/prefab-create'
 };
 
 // 帮助信息
 function showHelp() {
     console.log(`
-Cocos Creator CLI - 场景操作工具集
+Cocos Creator CLI - 场景/预制体操作工具集
 
 用法:
   cocos2.4 <command> [options]
 
 命令:
-  tree <场景文件路径>                      查看节点树（获取索引）
-  get <场景文件路径> <节点索引>            获取节点属性
-  set <场景文件路径> <节点索引> [选项]     修改节点属性
-  add <场景文件路径> <父节点索引> <名称>   添加节点到指定父节点
-  add-component <场景文件路径> <节点索引> <类型>  给节点添加组件
-  remove <场景路径> <索引>                 删除节点或组件
-  delete <场景文件路径> <节点索引>         删除节点
-  build <项目目录>                         构建组件映射
+  tree <场景.fire | 预制体.prefab>           查看节点树（获取索引）
+  get <场景.fire | 预制体.prefab> <索引>     获取节点属性
+  set <场景.fire | 预制体.prefab> <索引> [选项]  修改节点属性
+  add <场景.fire | 预制体.prefab> <父索引> <名称>  添加节点
+  add-component <文件> <节点索引> <类型>     给节点添加组件
+  remove <文件> <索引>                       删除节点或组件
+  delete <文件> <节点索引>                   删除节点
+  build <项目目录>                           构建组件映射
+  prefab-create <预制体路径> <根节点名称>    创建新预制体文件
 
 选项:
   --name=<名称>          修改节点名称
@@ -55,15 +57,14 @@ Cocos Creator CLI - 场景操作工具集
 
 示例:
   cocos2.4 tree assets/main.fire
+  cocos2.4 tree assets/Button.prefab
   cocos2.4 get assets/main.fire 5
-  cocos2.4 set assets/main.fire 8 --x=100 --y=200
+  cocos2.4 set assets/main.fire 8 --x=100 --y=200 --color=#ff0000
   cocos2.4 add assets/main.fire 5 NewSprite --type=sprite --x=100
-  cocos2.4 add assets/main.fire 5 FirstChild --at=0
-  cocos2.4 add-component assets/main.fire 8 sprite
-  cocos2.4 delete assets/main.fire 12
-  cocos2.4 build ./my-project
+  cocos2.4 add assets/Button.prefab 1 Child --color=#44aa44
+  cocos2.4 prefab-create assets/MyPanel.prefab Panel
 
-版本: 1.0.4
+版本: 1.0.5
 `);
 }
 
