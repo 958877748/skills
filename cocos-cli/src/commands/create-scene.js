@@ -28,6 +28,60 @@ const COMPONENT_TYPES = {
     'particlesystem': 'particleSystem'
 };
 
+// 渲染组件（一个节点只能有一个）
+const RENDER_COMPONENTS = ['sprite', 'label', 'graphics', 'mask', 'richtext', 'particleSystem'];
+
+// 功能组件（可以和渲染组件共存，也可以多个共存）
+const FUNCTIONAL_COMPONENTS = ['button', 'widget', 'layout', 'canvas', 'camera'];
+
+/**
+ * 校验节点的组件配置
+ * @returns {object} { valid: boolean, error?: string, warning?: string }
+ */
+function validateNodeComponents(nodeName, components) {
+    const renderComps = components.filter(c => RENDER_COMPONENTS.includes(c));
+    
+    if (renderComps.length > 1) {
+        return {
+            valid: false,
+            error: `节点 "${nodeName}" 有多个渲染组件 [${renderComps.join(', ')}]，Cocos Creator 不支持。
+            
+解决方法：将渲染组件拆分到子节点：
+  ${nodeName} (${components.filter(c => !RENDER_COMPONENTS.includes(c)).join(', ') || '无组件'})
+  └─ ${nodeName}Graphic (${renderComps[0]})
+
+渲染组件: sprite, label, graphics, mask, richtext, particle
+功能组件: button, widget, layout, canvas, camera (可多个共存)`
+        };
+    }
+    
+    return { valid: true };
+}
+
+/**
+ * 递归校验所有节点
+ */
+function validateAllNodes(nodes, path = '') {
+    const errors = [];
+    
+    for (const node of nodes) {
+        const nodePath = path ? `${path}/${node.name}` : node.name;
+        const validation = validateNodeComponents(node.name, node.components);
+        
+        if (!validation.valid) {
+            errors.push({ node: nodePath, error: validation.error });
+        }
+        
+        // 递归检查子节点
+        if (node.children && node.children.length > 0) {
+            const childErrors = validateAllNodes(node.children, nodePath);
+            errors.push(...childErrors);
+        }
+    }
+    
+    return errors;
+}
+
 /**
  * 解析树形文本结构
  * 支持格式：
@@ -453,6 +507,16 @@ function run(args) {
 
         if (rootNodes.length === 0) {
             console.log(JSON.stringify({ error: '未能解析出任何节点' }));
+            return;
+        }
+
+        // 校验组件配置
+        const validationErrors = validateAllNodes(rootNodes);
+        if (validationErrors.length > 0) {
+            console.log(JSON.stringify({ 
+                error: '组件配置错误',
+                details: validationErrors
+            }));
             return;
         }
 

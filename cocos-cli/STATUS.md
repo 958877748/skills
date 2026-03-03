@@ -118,7 +118,20 @@ echo "Canvas
 │   └─ SkillButtons" | cocos2.4 create-scene assets/game.fire GameScene
 ```
 
-**支持的组件类型**：`sprite`, `label`, `button`, `layout`, `widget`, `camera`, `canvas`, `particle`
+### 组件规则
+
+**渲染组件（每节点仅一个）**：`sprite`, `label`, `particle`
+
+**功能组件（可多个共存）**：`button`, `widget`, `layout`, `camera`, `canvas`
+
+```bash
+# ❌ 错误：多个渲染组件
+BtnConfirm (sprite, label)
+
+# ✅ 正确：拆分到子节点
+BtnConfirm (button, widget)
+└─ BtnText (label)
+```
 
 **节点属性选项**：`#width=`, `#height=`, `#x=`, `#y=`
 

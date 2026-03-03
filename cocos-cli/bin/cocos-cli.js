@@ -57,8 +57,13 @@ Cocos Creator CLI - 场景/预制体操作工具集
   --type=sprite/label/button  添加节点时指定组件类型
   --at=<索引>            添加节点时插入到子节点的指定位置（0=第一个）
 
-create-scene 支持的组件类型:
-  sprite, label, button, layout, widget, camera, canvas, particle
+create-scene 组件规则:
+  渲染组件（每节点仅一个）: sprite, label, particle
+  功能组件（可多个共存）: button, widget, layout, camera, canvas
+  
+  ❌ 错误: BtnConfirm (sprite, label)  -- 多个渲染组件
+  ✅ 正确: BtnConfirm (button, widget)
+           └─ BtnText (label)
 
 create-scene 节点选项:
   #width=100    设置宽度
