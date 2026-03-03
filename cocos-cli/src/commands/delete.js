@@ -1,27 +1,31 @@
 /**
- * delete 命令 - 删除节点
+ * delete 命令 - 删除节点  
  */
 
-const { loadScene, saveScene, buildMaps, collectNodeAndChildren, rebuildReferences, findNodeIndex, refreshEditor } = require('../lib/fire-utils');
+const { loadScene, saveScene, collectNodeAndChildren, rebuildReferences, refreshEditor, loadScriptMap, buildTree } = require('../lib/fire-utils');
 
 function run(args) {
     if (args.length < 2) {
-        console.log(JSON.stringify({ error: '用法: cocos2.4 delete <场景文件路径> <节点索引|名称>' }));
+        console.log(JSON.stringify({ error: '用法: cocos2.4 delete <场景文件路径> <节点索引>' }));
         return;
     }
     
     const scenePath = args[0];
     const nodeRef = args[1];
     
+    // 节点必须使用数字索引
+    if (!/^\d+$/.test(nodeRef)) {
+        console.log(JSON.stringify({ error: '节点索引必须是数字，请先用 tree 命令查看节点索引' }));
+        return;
+    }
+    
     try {
         const data = loadScene(scenePath);
-        const { indexMap } = buildMaps(data);
         
-        // 查找节点
-        const nodeIndex = findNodeIndex(data, indexMap, nodeRef);
+        const nodeIndex = parseInt(nodeRef);
         
-        if (nodeIndex === null || !data[nodeIndex]) {
-            console.log(JSON.stringify({ error: `找不到节点: ${nodeRef}` }));
+        if (!data[nodeIndex]) {
+            console.log(JSON.stringify({ error: `无效的节点索引: ${nodeRef}` }));
             return;
         }
         
@@ -31,7 +35,6 @@ function run(args) {
         }
         
         const node = data[nodeIndex];
-        const nodeName = node._name;
         
         // 收集所有需要删除的索引（节点 + 子节点 + 组件）
         const indicesToDelete = collectNodeAndChildren(data, nodeIndex);
@@ -57,14 +60,12 @@ function run(args) {
         // 保存场景
         saveScene(scenePath, data);
         
-        // 触发编辑器刷新（传入场景路径以重新打开场景）
+        // 触发编辑器刷新
         refreshEditor(scenePath);
         
-        console.log(JSON.stringify({
-            success: true,
-            message: `节点 "${nodeName}" 已删除`,
-            deletedCount: indicesToDelete.size
-        }, null, 2));
+        // 返回删除后的节点树
+        const scriptMap = loadScriptMap(scenePath);
+        console.log(buildTree(data, scriptMap, 1));
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));
     }

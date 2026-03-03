@@ -2,88 +2,23 @@
  * remove 命令 - 删除节点或组件
  */
 
-const { loadScene, saveScene, buildMaps, collectNodeAndChildren, rebuildReferences, refreshEditor, installPlugin } = require('../lib/fire-utils');
-const fs = require('fs');
-const path = require('path');
-
-// 加载脚本映射
-function loadScriptMap(scenePath) {
-    const projectPath = path.dirname(path.dirname(scenePath));
-    const mapPath = path.join(projectPath, 'data', 'script_map.json');
-    try {
-        if (fs.existsSync(mapPath)) {
-            return JSON.parse(fs.readFileSync(mapPath, 'utf-8'));
-        }
-    } catch (e) {}
-    return {};
-}
-
-// 构建树形结构
-function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoot = true) {
-    const node = data[nodeIndex];
-    if (!node) return '';
-    
-    const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
-    const active = node._active !== false ? '●' : '○';
-    const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-    
-    let result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
-    
-    // 添加组件信息
-    if (node._components && node._components.length > 0) {
-        const comps = node._components.map(c => {
-            const comp = data[c.__id__];
-            if (!comp) return `? #${c.__id__}`;
-            const typeName = comp.__type__;
-            let displayName;
-            if (uuidRegex.test(typeName)) {
-                const scriptInfo = scriptMap[typeName];
-                if (scriptInfo && scriptInfo.name) {
-                    displayName = scriptInfo.name;
-                } else {
-                    displayName = '⚠️MissingScript';
-                }
-            } else if (typeName === 'MissingScript') {
-                displayName = '⚠️MissingScript';
-            } else {
-                displayName = typeName.replace('cc.', '');
-            }
-            return `${displayName} #${c.__id__}`;
-        }).join(', ');
-        result += ` (${comps})`;
-    }
-    
-    result += '\n';
-    
-    // 处理子节点
-    if (node._children && node._children.length > 0) {
-        node._children.forEach((childRef, idx) => {
-            const childIsLast = idx === node._children.length - 1;
-            const childPrefix = prefix + (isRoot ? '' : (isLast ? '    ' : '│   '));
-            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, false);
-        });
-    }
-    
-    return result;
-}
+const { loadScene, saveScene, collectNodeAndChildren, rebuildReferences, refreshEditor, loadScriptMap, buildTree } = require('../lib/fire-utils');
 
 function run(args) {
     if (args.length < 2) {
-        console.log('用法: cocos2.4 remove <场景文件路径> <索引>');
+        console.log(JSON.stringify({ error: '用法: cocos2.4 remove <场景文件路径> <索引>' }));
         return;
     }
     
     const scenePath = args[0];
     
-    // 安装 CLI Helper 插件（如果不存在）
-    installPlugin(scenePath);
-    
-    const index = parseInt(args[1]);
-    
-    if (isNaN(index)) {
-        console.log('错误: 索引必须是数字');
+    // 索引必须是数字
+    if (!/^\d+$/.test(args[1])) {
+        console.log(JSON.stringify({ error: '索引必须是数字，请先用 tree 命令查看节点索引' }));
         return;
     }
+    
+    const index = parseInt(args[1]);
     
     try {
         let data = loadScene(scenePath);
@@ -91,7 +26,7 @@ function run(args) {
         
         // 检查索引是否存在
         if (!data[index]) {
-            console.log(`错误: 索引 ${index} 不存在`);
+            console.log(JSON.stringify({ error: `索引 ${index} 不存在` }));
             return;
         }
         
@@ -103,7 +38,7 @@ function run(args) {
         const isComponent = item.node !== undefined;
         
         if (isNode && index <= 1) {
-            console.log('错误: 不能删除根节点');
+            console.log(JSON.stringify({ error: '不能删除根节点' }));
             return;
         }
         
@@ -156,7 +91,7 @@ function run(args) {
         console.log(buildTree(data, scriptMap, 1));
         
     } catch (err) {
-        console.log(`错误: ${err.message}`);
+        console.log(JSON.stringify({ error: err.message }));
     }
 }
 

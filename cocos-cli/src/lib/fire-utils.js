@@ -1,5 +1,5 @@
 /**
- * Fire 文件工具模块
+ * Fire 文件工具模块 
  * 提供直接读取和操作 .fire 场景文件的功能
  */
 
@@ -398,6 +398,67 @@ function installPlugin(scenePath) {
     }
 }
 
+/**
+ * 加载脚本映射（用于显示自定义脚本组件名称）
+ */
+function loadScriptMap(scenePath) {
+    const projectPath = path.dirname(path.dirname(scenePath));
+    const mapPath = path.join(projectPath, 'data', 'script_map.json');
+    try {
+        if (fs.existsSync(mapPath)) {
+            return JSON.parse(fs.readFileSync(mapPath, 'utf-8'));
+        }
+    } catch (e) {}
+    return {};
+}
+
+/**
+ * 构建节点树输出
+ */
+function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoot = true) {
+    const node = data[nodeIndex];
+    if (!node) return '';
+    
+    const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
+    const active = node._active !== false ? '●' : '○';
+    const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+    
+    let result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
+    
+    // 添加组件信息
+    if (node._components && node._components.length > 0) {
+        const comps = node._components.map(c => {
+            const comp = data[c.__id__];
+            if (!comp) return `? #${c.__id__}`;
+            const typeName = comp.__type__;
+            let displayName;
+            if (uuidRegex.test(typeName)) {
+                const scriptInfo = scriptMap[typeName];
+                displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '⚠️MissingScript';
+            } else if (typeName === 'MissingScript') {
+                displayName = '⚠️MissingScript';
+            } else {
+                displayName = typeName.replace('cc.', '');
+            }
+            return `${displayName} #${c.__id__}`;
+        }).join(', ');
+        result += ` (${comps})`;
+    }
+    
+    result += '\n';
+    
+    // 处理子节点
+    if (node._children && node._children.length > 0) {
+        node._children.forEach((childRef, idx) => {
+            const childIsLast = idx === node._children.length - 1;
+            const childPrefix = prefix + (isRoot ? '' : (isLast ? '    ' : '│   '));
+            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, false);
+        });
+    }
+    
+    return result;
+}
+
 module.exports = {
     loadScene,
     saveScene,
@@ -408,5 +469,7 @@ module.exports = {
     reorderArrayToMatchChildren,
     refreshEditor,
     installPlugin,
-    checkPluginStatus
+    checkPluginStatus,
+    loadScriptMap,
+    buildTree
 };

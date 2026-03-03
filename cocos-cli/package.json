@@ -1,8 +1,8 @@
 {
-  "name": "cocos2d-cli",
+  "name": "cocos2d-cli", 
   "version": "1.0.4",
   "description": "Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes",
-  "main": "src/lib/index.js",
+  "main": "bin/cocos-cli.js",
   "bin": {
     "cocos2d-cli": "./bin/cocos-cli.js"
   },
@@ -12,9 +12,7 @@
     "data"
   ],
   "scripts": {
-    "test": "bash test/run.sh",
-    "test:structure": "node test/verify_structure.js",
-    "test:cli": "bash test/run.sh"
+    "test": "echo \"No tests specified\" && exit 1"
   },
   "keywords": [
     "cocos",

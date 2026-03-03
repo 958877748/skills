@@ -1,0 +1,11 @@
+# 测试项目
+NewProject/
+
+# clone 的外部项目
+mcp-bridge/
+
+# node_modules
+node_modules/
+
+# 测试文件
+test-add.js

@@ -1,8 +1,121 @@
 /**
- * set 命令 - 修改节点属性
+ * set 命令 - 修改节点属性 
+ * 修改成功后返回节点最终状态（与 get 命令格式一致）
  */
 
 const { loadScene, saveScene, buildMaps, findNodeIndex, refreshEditor } = require('../lib/fire-utils');
+
+/**
+ * 将 _color 对象转为 #RRGGBB 字符串
+ */
+function colorToHex(color) {
+    if (!color) return '#ffffff';
+    const r = (color.r || 0).toString(16).padStart(2, '0');
+    const g = (color.g || 0).toString(16).padStart(2, '0');
+    const b = (color.b || 0).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`;
+}
+
+/**
+ * 提取组件的关键属性（对应 Inspector 面板显示）
+ */
+function extractComponentProps(comp) {
+    if (!comp) return null;
+    const type = comp.__type__;
+    const base = comp._enabled ? { type } : { type, enabled: false };
+
+    const clean = (obj) => {
+        if (!obj || typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(clean);
+        const result = {};
+        for (const [k, v] of Object.entries(obj)) {
+            if (k === '__type__') continue;
+            result[k] = typeof v === 'object' ? clean(v) : v;
+        }
+        return result;
+    };
+
+    switch (type) {
+        case 'cc.Sprite':
+            return {
+                ...base,
+                spriteFrame: comp._spriteFrame?.__uuid__ || null,
+                sizeMode: ['CUSTOM', 'TRIMMED', 'RAW'][comp._sizeMode] || comp._sizeMode,
+                spriteType: ['SIMPLE', 'SLICED', 'TILED', 'FILLED', 'MESH'][comp._type] || comp._type,
+                trim: comp._isTrimmedMode
+            };
+        case 'cc.Label':
+            return {
+                ...base,
+                string: comp._string,
+                fontSize: comp._fontSize,
+                lineHeight: comp._lineHeight,
+                horizontalAlign: ['LEFT', 'CENTER', 'RIGHT'][comp._N$horizontalAlign] || comp._N$horizontalAlign,
+                verticalAlign: ['TOP', 'CENTER', 'BOTTOM'][comp._N$verticalAlign] || comp._N$verticalAlign,
+                overflow: ['NONE', 'CLAMP', 'SHRINK', 'RESIZE_HEIGHT'][comp._N$overflow] || comp._N$overflow,
+                fontFamily: comp._N$fontFamily,
+                enableWrapText: comp._enableWrapText
+            };
+        case 'cc.Button':
+            return {
+                ...base,
+                interactable: comp._N$interactable,
+                transition: ['NONE', 'COLOR', 'SPRITE', 'SCALE'][comp._N$transition] || comp._N$transition,
+                zoomScale: comp.zoomScale,
+                duration: comp.duration
+            };
+        case 'cc.Widget':
+            return {
+                ...base,
+                alignMode: ['ONCE', 'ON_WINDOW_RESIZE', 'ALWAYS'][comp.alignMode] || comp.alignMode,
+                left: comp._left,
+                right: comp._right,
+                top: comp._top,
+                bottom: comp._bottom
+            };
+        case 'cc.Layout':
+            return {
+                ...base,
+                layoutType: ['NONE', 'HORIZONTAL', 'VERTICAL', 'GRID'][comp._N$layoutType] || comp._N$layoutType,
+                spacingX: comp._N$spacingX,
+                spacingY: comp._N$spacingY,
+                paddingLeft: comp._N$paddingLeft,
+                paddingRight: comp._N$paddingRight,
+                paddingTop: comp._N$paddingTop,
+                paddingBottom: comp._N$paddingBottom
+            };
+        case 'cc.Canvas':
+            return {
+                ...base,
+                designResolution: clean(comp._designResolution),
+                fitWidth: comp._fitWidth,
+                fitHeight: comp._fitHeight
+            };
+        case 'cc.Camera':
+            return {
+                ...base,
+                depth: comp._depth,
+                zoomRatio: comp._zoomRatio,
+                ortho: comp._ortho,
+                cullingMask: comp._cullingMask
+            };
+        case 'cc.ParticleSystem':
+            return {
+                ...base,
+                playOnLoad: comp.playOnLoad,
+                totalParticles: comp.totalParticles,
+                duration: comp.duration
+            };
+        default:
+            const result = { ...base };
+            for (const key of Object.keys(comp)) {
+                if (!key.startsWith('_') && key !== '__type__') {
+                    result[key] = comp[key];
+                }
+            }
+            return result;
+    }
+}
 
 // 解析颜色
 function parseColor(colorStr) {
@@ -20,6 +133,33 @@ function parseColor(colorStr) {
         }
     }
     return null;
+}
+
+/**
+ * 获取节点的完整状态（与 get 命令一致）
+ */
+function getNodeState(data, node, nodeIndex) {
+    const trs = node._trs?.array || [0,0,0, 0,0,0,1, 1,1,1];
+    const components = (node._components || []).map(ref => extractComponentProps(data[ref.__id__]));
+    const children = (node._children || []).map(ref => data[ref.__id__]?._name || '(unknown)');
+
+    const result = {
+        name: node._name,
+        active: node._active,
+        position: { x: trs[0], y: trs[1] },
+        rotation: node._eulerAngles?.z ?? 0,
+        scale: { x: trs[7], y: trs[8] },
+        anchor: { x: node._anchorPoint?.x ?? 0.5, y: node._anchorPoint?.y ?? 0.5 },
+        size: { w: node._contentSize?.width ?? 0, h: node._contentSize?.height ?? 0 },
+        color: colorToHex(node._color),
+        opacity: node._opacity ?? 255,
+        group: node._groupIndex ?? 0
+    };
+
+    if (children.length > 0) result.children = children;
+    if (components.length > 0) result.components = components;
+
+    return result;
 }
 
 function run(args) {
@@ -53,20 +193,15 @@ function run(args) {
         }
         
         const node = data[nodeIndex];
-        const changes = {};
         
         // 修改名称
         if (options.name !== undefined) {
-            const oldName = node._name;
             node._name = options.name;
-            changes.name = { from: oldName, to: options.name };
         }
         
         // 修改激活状态
         if (options.active !== undefined) {
-            const oldActive = node._active;
             node._active = options.active !== 'false';
-            changes.active = { from: oldActive, to: node._active };
         }
         
         // 修改位置
@@ -74,11 +209,8 @@ function run(args) {
             if (!node._trs) {
                 node._trs = { "__type__": "TypedArray", "ctor": "Float64Array", "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] };
             }
-            const oldX = node._trs.array[0];
-            const oldY = node._trs.array[1];
             if (options.x !== undefined) node._trs.array[0] = parseFloat(options.x);
             if (options.y !== undefined) node._trs.array[1] = parseFloat(options.y);
-            changes.position = { from: [oldX, oldY], to: [node._trs.array[0], node._trs.array[1]] };
         }
         
         // 修改大小
@@ -86,11 +218,8 @@ function run(args) {
             if (!node._contentSize) {
                 node._contentSize = { "__type__": "cc.Size", width: 0, height: 0 };
             }
-            const oldW = node._contentSize.width;
-            const oldH = node._contentSize.height;
             if (options.width !== undefined) node._contentSize.width = parseFloat(options.width);
             if (options.height !== undefined) node._contentSize.height = parseFloat(options.height);
-            changes.size = { from: { width: oldW, height: oldH }, to: { width: node._contentSize.width, height: node._contentSize.height } };
         }
         
         // 修改锚点
@@ -98,18 +227,13 @@ function run(args) {
             if (!node._anchorPoint) {
                 node._anchorPoint = { "__type__": "cc.Vec2", x: 0.5, y: 0.5 };
             }
-            const oldX = node._anchorPoint.x;
-            const oldY = node._anchorPoint.y;
             if (options.anchorX !== undefined) node._anchorPoint.x = parseFloat(options.anchorX);
             if (options.anchorY !== undefined) node._anchorPoint.y = parseFloat(options.anchorY);
-            changes.anchor = { from: [oldX, oldY], to: [node._anchorPoint.x, node._anchorPoint.y] };
         }
         
         // 修改透明度
         if (options.opacity !== undefined) {
-            const oldOpacity = node._opacity;
             node._opacity = Math.max(0, Math.min(255, parseInt(options.opacity)));
-            changes.opacity = { from: oldOpacity, to: node._opacity };
         }
         
         // 修改颜色
@@ -117,7 +241,6 @@ function run(args) {
             const color = parseColor(options.color);
             if (color) {
                 node._color = color;
-                changes.color = { to: options.color };
             }
         }
         
@@ -126,9 +249,7 @@ function run(args) {
             if (!node._eulerAngles) {
                 node._eulerAngles = { "__type__": "cc.Vec3", x: 0, y: 0, z: 0 };
             }
-            const oldRotation = node._eulerAngles.z;
             node._eulerAngles.z = parseFloat(options.rotation);
-            changes.rotation = { from: oldRotation, to: node._eulerAngles.z };
         }
         
         // 修改缩放
@@ -136,25 +257,18 @@ function run(args) {
             if (!node._trs) {
                 node._trs = { "__type__": "TypedArray", "ctor": "Float64Array", "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] };
             }
-            const oldScaleX = node._trs.array[7];
-            const oldScaleY = node._trs.array[8];
             if (options.scaleX !== undefined) node._trs.array[7] = parseFloat(options.scaleX);
             if (options.scaleY !== undefined) node._trs.array[8] = parseFloat(options.scaleY);
-            changes.scale = { from: [oldScaleX, oldScaleY], to: [node._trs.array[7], node._trs.array[8]] };
         }
         
         // 保存场景
         saveScene(scenePath, data);
         
-        // 触发编辑器刷新（传入场景路径以重新打开场景）
+        // 触发编辑器刷新
         refreshEditor(scenePath);
         
-        console.log(JSON.stringify({
-            success: true,
-            index: nodeIndex,
-            name: node._name,
-            changes
-        }, null, 2));
+        // 返回节点最终状态（与 get 命令格式一致）
+        console.log(JSON.stringify(getNodeState(data, node, nodeIndex)));
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));
     }

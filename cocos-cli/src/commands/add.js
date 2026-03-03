@@ -1,5 +1,5 @@
 /**
- * add 命令 - 添加节点
+ * add 命令 - 添加节点  
  * 按照 Cocos Creator 的深度优先遍历顺序插入节点
  */
 
@@ -102,11 +102,17 @@ function run(args) {
         const data = loadScene(scenePath);
         const { indexMap } = buildMaps(data);
         
-        // 查找父节点
-        const parentIndex = findNodeIndex(data, indexMap, parentRef);
+        // 父节点必须使用数字索引
+        if (!/^\d+$/.test(parentRef)) {
+            console.log(JSON.stringify({ error: '父节点必须使用数字索引，请先用 tree 命令查看节点索引' }));
+            return;
+        }
         
-        if (parentIndex === null || !data[parentIndex]) {
-            console.log(JSON.stringify({ error: `找不到父节点: ${parentRef}` }));
+        // 查找父节点
+        const parentIndex = parseInt(parentRef);
+        
+        if (parentIndex < 0 || parentIndex >= data.length || !data[parentIndex]) {
+            console.log(JSON.stringify({ error: `无效的节点索引: ${parentRef}` }));
             return;
         }
         
@@ -188,8 +194,6 @@ function run(args) {
             
             const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
             const active = node._active !== false ? '●' : '○';
-            const connector = isRoot ? '' : (isLast ? '└── ' : '├── ');
-            
             let result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
             
             // 添加组件信息
