@@ -57,8 +57,8 @@ function run(args) {
         // 保存场景
         saveScene(scenePath, data);
         
-        // 触发编辑器刷新
-        refreshEditor();
+        // 触发编辑器刷新（传入场景路径以重新打开场景）
+        refreshEditor(scenePath);
         
         console.log(JSON.stringify({
             success: true,

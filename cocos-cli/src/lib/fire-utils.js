@@ -241,12 +241,37 @@ function reorderArrayToMatchChildren(data) {
 }
 
 /**
+ * 检查 CLI Helper 插件状态
+ * @returns {object|null} - 插件状态信息，未启动返回 null
+ */
+function checkPluginStatus() {
+    const { execSync } = require('child_process');
+    
+    try {
+        const result = execSync('curl.exe -s http://localhost:7455/status', { 
+            timeout: 3000,
+            windowsHide: true,
+            encoding: 'utf8'
+        });
+        return JSON.parse(result);
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
  * 触发 Cocos Creator 编辑器刷新资源
  * 先尝试调用 CLI Helper 插件 (7455端口)，失败则调用编辑器默认接口
  * 编辑器有可能没打开，调用失败不报错
- * @param {string} scenePath - 场景文件路径（可选）
+ * @param {string} scenePath - 场景文件路径（必须）
  */
 function refreshEditor(scenePath) {
+    // 参数校验
+    if (!scenePath) {
+        console.log(JSON.stringify({ warning: 'refreshEditor: 未提供 scenePath 参数，编辑器不会自动刷新场景' }));
+        return;
+    }
+    
     const { execSync } = require('child_process');
     const path = require('path');
     
@@ -261,13 +286,32 @@ function refreshEditor(scenePath) {
     
     // 先尝试调用插件
     try {
-        const curlCmd = sceneUrl 
-            ? `curl.exe -s -X POST -H "Content-Type: application/json" -d "{\\"sceneUrl\\":\\"${sceneUrl}\\"}" http://localhost:7455/refresh`
-            : 'curl.exe -s -X POST http://localhost:7455/refresh';
-        execSync(curlCmd, { 
-            timeout: 5000,
-            windowsHide: true
+        const http = require('http');
+        const postData = sceneUrl ? JSON.stringify({ sceneUrl }) : '';
+        
+        const options = {
+            hostname: 'localhost',
+            port: 7455,
+            path: '/refresh',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+        
+        const req = http.request(options, (res) => {
+            // 忽略响应，只发送请求
         });
+        
+        req.on('error', () => {
+            // 插件未启动，静默处理
+        });
+        
+        if (postData) {
+            req.write(postData);
+        }
+        req.end();
         return;
     } catch (e) {
         // 插件未启动，尝试编辑器默认接口
@@ -337,5 +381,6 @@ module.exports = {
     rebuildReferences,
     reorderArrayToMatchChildren,
     refreshEditor,
-    installPlugin
+    installPlugin,
+    checkPluginStatus
 };

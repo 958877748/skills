@@ -25,20 +25,23 @@
 ```
 0: cc.SceneAsset
 1: cc.Scene
-2: cc.Node (根节点，如 Canvas)
-3:   cc.Node (第1个子节点)
-4:     cc.Component (子节点的组件)
-5:   cc.Node (第2个子节点)
-6:     cc.Component
-7:   cc.Component (根节点的组件)
-8:   cc.Component
+2: cc.Node (Canvas - 根节点)
+3:   cc.Node (Main Camera - 第1个子节点)
+4:     cc.Camera (Main Camera 的组件)
+5:   cc.Node (GameScene - 第2个子节点)
+6:     cc.Node (Child1 - GameScene 的第1个子节点)
+7:       cc.Node (GrandChild - Child1 的子节点)
+8:     cc.Node (Child2 - GameScene 的第2个子节点)
+9: cc.Canvas (Canvas 的组件)
+10: cc.Widget (Canvas 的组件)
 ```
 
 **规律**：
 1. 0, 1 固定为 SceneAsset 和 Scene
-2. 节点按深度优先遍历顺序排列
-3. 组件紧跟在所属节点后面
-4. 根节点的组件放在所有子节点之后
+2. 节点按**深度优先遍历**顺序排列
+3. **组件放在该节点整个子树遍历完成之后**
+4. 即：父节点 → 子节点 → 孙节点... → 父节点的组件
+5. `_children` 数组的顺序决定了子节点在数组中的先后顺序
 
 ### 删除算法
 
@@ -53,11 +56,15 @@
 ### 添加算法
 
 ```javascript
-1. 创建新节点和组件
-2. 追加到数组末尾
-3. 更新父节点 _children
-4. 重新排列数组以匹配 _children 顺序
-5. 保存文件
+1. 根据 _children 顺序确定插入位置（深度优先遍历）
+2. 创建新节点
+3. 在正确位置插入新节点（splice）
+4. 重建所有 __id__ 引用（插入位置后的索引+1）
+5. 更新新节点的 _parent 引用
+6. 如有组件，在节点后插入组件
+7. 更新父节点的 _children 数组
+8. 保存文件
+9. 触发编辑器刷新
 ```
 
 ### 编辑器自动刷新机制
