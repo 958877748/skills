@@ -16,7 +16,8 @@ const commands = {
     'remove': '../src/commands/remove',
     delete: '../src/commands/delete',
     build: '../src/commands/build',
-    'prefab-create': '../src/commands/prefab-create'
+    'prefab-create': '../src/commands/prefab-create',
+    'create-scene': '../src/commands/create-scene'
 };
 
 // 帮助信息
@@ -37,6 +38,7 @@ Cocos Creator CLI - 场景/预制体操作工具集
   delete <文件> <节点索引>                   删除节点
   build <项目目录>                           构建组件映射
   prefab-create <预制体路径> <根节点名称>    创建新预制体文件
+  create-scene <输出路径.fire> [场景名称]    从 stdin 创建场景文件
 
 选项:
   --name=<名称>          修改节点名称
@@ -55,16 +57,30 @@ Cocos Creator CLI - 场景/预制体操作工具集
   --type=sprite/label/button  添加节点时指定组件类型
   --at=<索引>            添加节点时插入到子节点的指定位置（0=第一个）
 
+create-scene 支持的组件类型:
+  sprite, label, button, layout, widget, camera, canvas, particle
+
+create-scene 节点选项:
+  #width=100    设置宽度
+  #height=50    设置高度
+  #x=10         设置 X 坐标
+  #y=20         设置 Y 坐标
+
 示例:
   cocos2.4 tree assets/main.fire
-  cocos2.4 tree assets/Button.prefab
   cocos2.4 get assets/main.fire 5
   cocos2.4 set assets/main.fire 8 --x=100 --y=200 --color=#ff0000
   cocos2.4 add assets/main.fire 5 NewSprite --type=sprite --x=100
-  cocos2.4 add assets/Button.prefab 1 Child --color=#44aa44
   cocos2.4 prefab-create assets/MyPanel.prefab Panel
 
-版本: 1.0.5
+  # 从树形结构创建场景
+  echo "Canvas (canvas)
+  ├─ TopBar (sprite, widget) #width=720 #height=80
+  │   ├─ ScoreLabel (label)
+  │   └─ GoldLabel (label)
+  └─ GameArea" | cocos2.4 create-scene assets/game.fire
+
+版本: 1.1.0
 `);
 }
 

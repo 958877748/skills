@@ -1,6 +1,6 @@
 # Cocos Creator CLI 开发状态
 
-> 最后更新：2026年3月2日
+> 最后更新：2026年3月3日
 
 ## ✅ 功能清单
 
@@ -14,6 +14,8 @@
 | 删除节点 | ✅ 正常 | `delete` 命令，与编辑器行为一致 |
 | 删除组件 | ✅ 正常 | `remove` 命令，支持自动刷新编辑器 |
 | 构建组件映射 | ✅ 正常 | `build` 命令 |
+| 创建预制体 | ✅ 正常 | `prefab-create` 命令 |
+| **创建场景** | ✅ 正常 | `create-scene` 命令，从树形文本一次性生成 |
 | 编辑器自动刷新 | ✅ 正常 | 通过 CLI Helper 插件实现 |
 
 ---
@@ -102,12 +104,31 @@ node bin/cocos-cli.js remove assets/main.fire 15
 node bin/cocos-cli.js delete assets/main.fire Canvas/OldNode
 ```
 
+### 一次性创建场景（AI 推荐）
+
+```bash
+# 从树形文本结构创建完整场景
+echo "Canvas
+├─ TopBar (sprite, widget) #width=720 #height=80
+│   ├─ ScoreLabel (label)
+│   └─ GoldLabel (label)
+├─ GameArea #width=720 #height=1000
+└─ BottomBar (sprite, widget) #width=720 #height=100 #y=-600
+│   ├─ PauseButton (button)
+│   └─ SkillButtons" | cocos2.4 create-scene assets/game.fire GameScene
+```
+
+**支持的组件类型**：`sprite`, `label`, `button`, `layout`, `widget`, `camera`, `canvas`, `particle`
+
+**节点属性选项**：`#width=`, `#height=`, `#x=`, `#y=`
+
 ### 注意事项
 
 1. **首次使用**：确保在编辑器中启用 CLI Helper 插件
 2. **组件索引**：tree 命令会显示组件索引，用于 remove 命令
 3. **自动刷新**：增删改操作后编辑器会自动重新加载场景
 4. **直接操作文件**：所有命令直接读取和保存场景文件
+5. **场景模板**：`create-scene` 使用 `data/scene-template.json` 作为基础模板
 
 ---
 
