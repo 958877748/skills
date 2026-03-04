@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/**   
+/**     
  * Cocos Creator CLI
  * Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes
  */
@@ -54,6 +54,9 @@ Cocos Creator CLI - 场景/预制体操作工具集
   --rotation=<角度>      修改旋转角度
   --scaleX=<数值>        修改 X 缩放
   --scaleY=<数值>        修改 Y 缩放
+  --string=<文字>        修改 Label 文字内容
+  --fontSize=<数值>      修改 Label 字体大小
+  --lineHeight=<数值>    修改 Label 行高
   --type=sprite/label/button  添加节点时指定组件类型
   --at=<索引>            添加节点时插入到子节点的指定位置（0=第一个）
 
@@ -61,8 +64,8 @@ create-scene 组件规则:
   渲染组件（每节点仅一个）: sprite, label, particle
   功能组件（可多个共存）: button, widget, layout, camera, canvas
   
-  ❌ 错误: BtnConfirm (sprite, label)  -- 多个渲染组件
-  ✅ 正确: BtnConfirm (button, widget)
+  [错误] BtnConfirm (sprite, label)  -- 多个渲染组件
+  [正确] BtnConfirm (button, widget)
            └─ BtnText (label)
 
 create-scene 节点选项:

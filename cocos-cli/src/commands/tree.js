@@ -19,9 +19,9 @@ function run(args) {
         
         // 输出文件类型
         if (prefab) {
-            console.log(`📦 Prefab: ${data[1]._name || 'Root'}\n`);
+            console.log(`[Prefab] ${data[1]._name || 'Root'}\n`);
         } else {
-            console.log(`🎬 Scene\n`);
+            console.log(`[Scene]\n`);
         }
         
         console.log(buildTree(data, scriptMap, 1));

@@ -445,7 +445,7 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
     
     // 场景根节点特殊处理
     if (isSceneRoot) {
-        result = prefix + '🎬 Scene\n';
+        result = prefix + '[Scene]\n';
     } else {
         result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
         
@@ -458,9 +458,9 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
                 let displayName;
                 if (uuidRegex.test(typeName)) {
                     const scriptInfo = scriptMap[typeName];
-                    displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '⚠️MissingScript';
+                    displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '[MissingScript]';
                 } else if (typeName === 'MissingScript') {
-                    displayName = '⚠️MissingScript';
+                    displayName = '[MissingScript]';
                 } else {
                     displayName = typeName.replace('cc.', '');
                 }

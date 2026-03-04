@@ -261,6 +261,25 @@ function run(args) {
             if (options.scaleY !== undefined) node._trs.array[8] = parseFloat(options.scaleY);
         }
         
+        // 修改 Label 文字内容及字体属性
+        if (options.string !== undefined || options.fontSize !== undefined || options.lineHeight !== undefined) {
+            const labelComp = (node._components || []).map(ref => data[ref.__id__]).find(c => c && c.__type__ === 'cc.Label');
+            if (!labelComp) {
+                console.log(JSON.stringify({ error: `节点 ${node._name} 没有 cc.Label 组件，无法设置文字属性` }));
+                return;
+            }
+            if (options.string !== undefined) {
+                labelComp._string = options.string;
+                labelComp._N$string = options.string;
+            }
+            if (options.fontSize !== undefined) {
+                labelComp._fontSize = parseInt(options.fontSize);
+            }
+            if (options.lineHeight !== undefined) {
+                labelComp._lineHeight = parseInt(options.lineHeight);
+            }
+        }
+        
         // 保存场景
         saveScene(scenePath, data);
         
