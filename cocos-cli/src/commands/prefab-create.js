@@ -98,11 +98,23 @@ function parseComponent(compDef) {
 
 /**
  * 应用组件属性
+ * @param comp 组件对象
+ * @param props 属性对象
+ * @param node 节点对象（可选，用于 label 的 color 设置到节点）
  */
-function applyComponentProps(comp, props) {
+function applyComponentProps(comp, props, node) {
     if (!props || !comp) return;
     
     const type = comp.__type__;
+    
+    // Label 的 color 属性应该设置到节点上
+    if (type === 'cc.Label' && props.color && node) {
+        const parsed = parseColor(props.color);
+        if (parsed) {
+            node._color = { "__type__": "cc.Color", ...parsed };
+        }
+        delete props.color; // 不再在组件中处理
+    }
     
     // Widget 特殊处理：根据设置的方向计算 alignFlags
     // 位掩码定义 (来自 Cocos Creator 源码)
@@ -334,7 +346,7 @@ function createPrefabData(nodeDef) {
             if (Components[type]) {
                 const comp = Components[type](nodeIndex);
                 // 应用组件属性
-                applyComponentProps(comp, props);
+                applyComponentProps(comp, props, node);
                 const compIndex = data.length;
                 data.push(comp);
                 node._components.push({ "__id__": compIndex });

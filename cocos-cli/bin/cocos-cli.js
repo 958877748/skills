@@ -78,7 +78,21 @@ JSON 格式 (create-prefab / create-scene):
   }
 
   节点属性: name, width, height, x, y, color, opacity, anchorX, anchorY, rotation, scaleX, scaleY, active
-  组件类型: sprite, label, button, widget, layout, canvas, camera, particle
+
+  组件类型:
+    sprite   - 精灵，显示图片/色块
+    label    - 文本，支持 string, fontSize, color(兼容)
+    button   - 按钮，通常配合 sprite 使用才能看见
+    widget   - 对齐，支持 top, bottom, left, right
+    layout   - 布局，自动排列子节点
+    canvas   - 画布，根节点使用
+    camera   - 相机
+    particle - 粒子效果
+
+  注意:
+    - color 写在节点或 label 组件均可
+    - button 需要配合 sprite 才能看见按钮外观
+    - 必须通过 JSON 文件输入: type panel.json | cocos2d-cli create-prefab xxx.prefab
 
 示例:
   cocos2d-cli tree assets/main.fire
