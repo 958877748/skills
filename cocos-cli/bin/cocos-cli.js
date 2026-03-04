@@ -16,7 +16,7 @@ const commands = {
     'remove': '../src/commands/remove',
     delete: '../src/commands/delete',
     build: '../src/commands/build',
-    'prefab-create': '../src/commands/prefab-create',
+    'create-prefab': '../src/commands/prefab-create',
     'create-scene': '../src/commands/create-scene'
 };
 
@@ -26,7 +26,7 @@ function showHelp() {
 Cocos Creator CLI - 场景/预制体操作工具集
 
 用法:
-  cocos2.4 <command> [options]
+  cocos2d-cli <command> [options]
 
 命令:
   tree <场景.fire | 预制体.prefab>           查看节点树（获取索引）
@@ -37,8 +37,8 @@ Cocos Creator CLI - 场景/预制体操作工具集
   remove <文件> <索引>                       删除节点或组件
   delete <文件> <节点索引>                   删除节点
   build <项目目录>                           构建组件映射
-  prefab-create <预制体路径> <根节点名称>    创建新预制体文件
-  create-scene <输出路径.fire> [场景名称]    从 stdin 创建场景文件
+  create-prefab <输出.prefab>               从 stdin(JSON) 创建预制体
+  create-scene <输出.fire>                   从 stdin(JSON) 创建场景
 
 选项:
   --name=<名称>          修改节点名称
@@ -60,33 +60,37 @@ Cocos Creator CLI - 场景/预制体操作工具集
   --type=sprite/label/button  添加节点时指定组件类型
   --at=<索引>            添加节点时插入到子节点的指定位置（0=第一个）
 
-create-scene 组件规则:
-  渲染组件（每节点仅一个）: sprite, label, particle
-  功能组件（可多个共存）: button, widget, layout, camera, canvas
-  
-  [错误] BtnConfirm (sprite, label)  -- 多个渲染组件
-  [正确] BtnConfirm (button, widget)
-           └─ BtnText (label)
+JSON 格式 (create-prefab / create-scene):
+  {
+    "name": "节点名称",
+    "width": 400,
+    "height": 300,
+    "x": 0,
+    "y": 0,
+    "color": "#336699",
+    "opacity": 255,
+    "components": [
+      "sprite",
+      { "type": "widget", "top": 0, "left": 0, "right": 0, "bottom": 0 },
+      { "type": "label", "string": "Hello", "fontSize": 32 }
+    ],
+    "children": [...]
+  }
 
-create-scene 节点选项:
-  #width=100    设置宽度
-  #height=50    设置高度
-  #x=10         设置 X 坐标
-  #y=20         设置 Y 坐标
+  节点属性: name, width, height, x, y, color, opacity, anchorX, anchorY, rotation, scaleX, scaleY, active
+  组件类型: sprite, label, button, widget, layout, canvas, camera, particle
 
 示例:
-  cocos2.4 tree assets/main.fire
-  cocos2.4 get assets/main.fire 5
-  cocos2.4 set assets/main.fire 8 --x=100 --y=200 --color=#ff0000
-  cocos2.4 add assets/main.fire 5 NewSprite --type=sprite --x=100
-  cocos2.4 prefab-create assets/MyPanel.prefab Panel
+  cocos2d-cli tree assets/main.fire
+  cocos2d-cli get assets/main.fire 5
+  cocos2d-cli set assets/main.fire 8 --x=100 --y=200 --color=#ff0000
+  cocos2d-cli add assets/main.fire 5 NewSprite --type=sprite --x=100
 
-  # 从树形结构创建场景
-  echo "Canvas (canvas)
-  ├─ TopBar (sprite, widget) #width=720 #height=80
-  │   ├─ ScoreLabel (label)
-  │   └─ GoldLabel (label)
-  └─ GameArea" | cocos2.4 create-scene assets/game.fire
+  # 从 JSON 创建场景
+  type scene.json | cocos2d-cli create-scene assets/scene.fire
+
+  # 从 JSON 创建预制体
+  type panel.json | cocos2d-cli create-prefab assets/panel.prefab
 
 版本: 1.1.0
 `);
@@ -105,7 +109,7 @@ const commandPath = commands[commandName];
 
 if (!commandPath) {
     console.error(`未知命令: ${commandName}`);
-    console.error('运行 cocos-cli --help 查看可用命令');
+    console.error('运行 cocos2d-cli --help 查看可用命令');
     process.exit(1);
 }
 
