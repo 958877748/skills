@@ -469,36 +469,33 @@ function createSceneData(nodeDefs, sceneName) {
 }
 
 function run(args) {
-    if (args.length < 1) {
+    if (args.length < 2) {
         console.log(JSON.stringify({ 
-            error: '用法: cocos2d-cli create-scene <输出路径.fire>',
-            hint: '从 stdin 读取 JSON 结构生成场景',
-            example: 'type scene.json | cocos2d-cli create-scene assets/scene.fire'
+            error: '用法: cocos2d-cli create-scene <JSON文件路径> <输出路径.fire>',
+            hint: '从 JSON 文件读取结构生成场景',
+            example: 'cocos2d-cli create-scene scene.json assets/scene.fire'
         }));
         return;
     }
 
-    const outputPath = args[0];
+    const jsonPath = args[0];
+    const outputPath = args[1];
     const sceneName = path.basename(outputPath, '.fire');
 
-    // 从 stdin 读取 JSON
-    let input = '';
-    
-    if (!process.stdin.isTTY) {
-        input = fs.readFileSync(0, 'utf8');
-    }
-
-    if (!input.trim()) {
+    // 检查 JSON 文件是否存在
+    if (!fs.existsSync(jsonPath)) {
         console.log(JSON.stringify({ 
-            error: '请通过 stdin 提供 JSON 结构'
+            error: `JSON 文件不存在: ${jsonPath}`
         }));
         return;
     }
 
     try {
+        // 从文件读取 JSON
+        const input = fs.readFileSync(jsonPath, 'utf8');
         // 移除 BOM 并解析 JSON
-        input = input.replace(/^\uFEFF/, '').trim();
-        const nodeDef = JSON.parse(input);
+        const cleanInput = input.replace(/^\uFEFF/, '').trim();
+        const nodeDef = JSON.parse(cleanInput);
 
         // 生成场景数据
         const sceneData = createSceneData(nodeDef, sceneName);

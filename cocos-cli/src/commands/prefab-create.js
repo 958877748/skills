@@ -383,24 +383,26 @@ function createPrefabData(nodeDef) {
 function run(args) {
     if (args.length < 1) {
         console.log(JSON.stringify({ 
-            error: '用法: cocos2d-cli create-prefab <输出路径.prefab>',
-            hint: '从 stdin 读取 JSON 结构生成预制体',
-            example: 'type panel.json | cocos2d-cli create-prefab assets/panel.prefab'
+            error: '用法: cocos2d-cli create-prefab [JSON文件路径] <输出路径.prefab>',
+            hint: '不传 JSON 则创建默认预制体',
+            example: 'cocos2d-cli create-prefab assets/panel.prefab\n或\ncocos2d-cli create-prefab panel.json assets/panel.prefab'
         }));
         return;
     }
 
-    const outputPath = args[0];
+    let jsonPath = null;
+    let outputPath;
 
-    // 从 stdin 读取 JSON
-    let input = '';
-    
-    if (!process.stdin.isTTY) {
-        input = fs.readFileSync(0, 'utf8');
+    // 判断参数：如果只有一个参数，当作输出路径；两个参数则第一个是 JSON 路径
+    if (args.length === 1) {
+        outputPath = args[0];
+    } else {
+        jsonPath = args[0];
+        outputPath = args[1];
     }
 
-    // 没有 stdin 输入时创建空预制体
-    if (!input.trim()) {
+    // 没有传 JSON，创建默认预制体
+    if (!jsonPath) {
         const prefabName = path.basename(outputPath, '.prefab');
         
         try {
@@ -420,7 +422,9 @@ function run(args) {
             console.log(JSON.stringify({ 
                 success: true, 
                 path: outputPath,
-                rootName: prefabName
+                rootName: prefabName,
+                nodes: 1,
+                components: 0
             }));
             return;
         } catch (err) {
@@ -429,10 +433,20 @@ function run(args) {
         }
     }
 
+    // 检查 JSON 文件是否存在
+    if (!fs.existsSync(jsonPath)) {
+        console.log(JSON.stringify({ 
+            error: `JSON 文件不存在: ${jsonPath}`
+        }));
+        return;
+    }
+
     try {
+        // 从文件读取 JSON
+        const input = fs.readFileSync(jsonPath, 'utf8');
         // 移除 BOM 并解析 JSON
-        input = input.replace(/^\uFEFF/, '').trim();
-        const nodeDef = JSON.parse(input);
+        const cleanInput = input.replace(/^\uFEFF/, '').trim();
+        const nodeDef = JSON.parse(cleanInput);
 
         // 支持数组格式（第一个作为根节点）
         const rootNode = Array.isArray(nodeDef) ? nodeDef[0] : nodeDef;

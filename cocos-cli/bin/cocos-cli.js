@@ -37,8 +37,8 @@ Cocos Creator CLI - 场景/预制体操作工具集
   remove <文件> <索引>                       删除节点或组件
   delete <文件> <节点索引>                   删除节点
   build <项目目录>                           构建组件映射
-  create-prefab <输出.prefab>               从 stdin(JSON) 创建预制体
-  create-scene <输出.fire>                   从 stdin(JSON) 创建场景
+  create-prefab [JSON文件] <输出.prefab>     创建预制体（不传JSON则创建默认）
+  create-scene <JSON文件> <输出.fire>        从JSON文件创建场景
 
 选项:
   --name=<名称>          修改节点名称
@@ -85,7 +85,7 @@ JSON 格式 (create-prefab / create-scene):
     完整: { "type": "label", "string": "文本", "fontSize": 32, "color": "#fff" }
 
   组件类型:
-    sprite   - 精灵���默认白色方块，节点设置什么颜色就显示什么颜色
+    sprite   - 精灵（默认白色方块，节点设置什么颜色就显示什么颜色）
     label    - 文本，支持 string, fontSize, color(兼容)
     button   - 按钮，通常配合 sprite 使用才能看见
     widget   - 对齐，支持 top, bottom, left, right
@@ -97,7 +97,6 @@ JSON 格式 (create-prefab / create-scene):
   注意:
     - color 写在节点或 label 组件均可
     - button 需要配合 sprite 才能看见按钮外观
-    - 必须通过 JSON 文件输入: type panel.json | cocos2d-cli create-prefab xxx.prefab
 
 示例:
   cocos2d-cli tree assets/main.fire
@@ -105,11 +104,14 @@ JSON 格式 (create-prefab / create-scene):
   cocos2d-cli set assets/main.fire 8 --x=100 --y=200 --color=#ff0000
   cocos2d-cli add assets/main.fire 5 NewSprite --type=sprite --x=100
 
-  # 从 JSON 创建场景
-  type scene.json | cocos2d-cli create-scene assets/scene.fire
+  # 从 JSON 文件创建场景
+  cocos2d-cli create-scene scene.json assets/scene.fire
 
-  # 从 JSON 创建预制体
-  type panel.json | cocos2d-cli create-prefab assets/panel.prefab
+  # 从 JSON 文件创建预制体
+  cocos2d-cli create-prefab panel.json assets/panel.prefab
+
+  # 创建默认预制体（不传JSON）
+  cocos2d-cli create-prefab assets/NewNode.prefab
 `);
 }
 
