@@ -2,13 +2,14 @@
  * tree 命令 - 查看节点树（支持场景和预制体）
  */
 
-const { loadScene, loadScriptMap, buildTree, isPrefab } = require('../lib/fire-utils');
+const { loadScene, loadScriptMap, isPrefab } = require('../lib/fire-utils');
+const { buildTree } = require('../lib/node-utils');
 
 function run(args) {
     const filePath = args[0];
     
     if (!filePath) {
-        console.log(JSON.stringify({ error: '用法: cocos2.4 tree <场景.fire | 预制体.prefab>' }));
+        console.log(JSON.stringify({ error: '用法: cocos2d-cli tree <场景.fire | 预制体.prefab>' }));
         return;
     }
     

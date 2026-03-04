@@ -7,7 +7,7 @@ const path = require('path');
 
 function run(args) {
     if (args.length < 1) {
-        console.log(JSON.stringify({ error: '用法: cocos-cli build <项目目录>' }));
+        console.log(JSON.stringify({ error: '用法: cocos2d-cli build <项目目录>' }));
         return;
     }
     

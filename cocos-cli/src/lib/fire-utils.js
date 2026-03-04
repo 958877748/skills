@@ -1,6 +1,6 @@
 /**
- * Fire/Prefab 文件工具模块 
- * 提供直接读取和操作 .fire 场景文件和 .prefab 预制体文件的功能
+ * Fire/Prefab 文件工具模块
+ * 提供场景/预制体文件的读写和编辑器交互功能
  */
 
 const fs = require('fs');
@@ -33,18 +33,17 @@ function saveScene(scenePath, data) {
 }
 
 /**
- * 构建 ID 和索引映射（自动适配场景和预制体）
+ * 构建 ID 和索引映射
  */
 function buildMaps(data) {
-    const idMap = {};    // _id -> index
-    const indexMap = {}; // index -> { _id, name, path, type }
+    const idMap = {};
+    const indexMap = {};
     const prefab = isPrefab(data);
     
     function traverse(nodeIndex, parentPath = '') {
         const node = data[nodeIndex];
         if (!node) return;
         
-        // 跳过非节点类型
         if (!node.__type__?.startsWith('cc.Node') && node.__type__ !== 'cc.Scene') {
             return;
         }
@@ -64,7 +63,6 @@ function buildMaps(data) {
             type: node.__type__
         };
         
-        // 递归处理子节点
         if (node._children) {
             node._children.forEach(childRef => {
                 traverse(childRef.__id__, nodePath);
@@ -72,13 +70,7 @@ function buildMaps(data) {
         }
     }
     
-    if (prefab) {
-        // 预制体：从索引 1（根节点）开始遍历
-        traverse(1);
-    } else {
-        // 场景：从索引 1（Scene）开始遍历
-        traverse(1);
-    }
+    traverse(1);
     
     return { idMap, indexMap, prefab };
 }
@@ -87,12 +79,10 @@ function buildMaps(data) {
  * 查找节点索引
  */
 function findNodeIndex(data, indexMap, nodeRef) {
-    // 如果是数字，直接返回
     if (/^\d+$/.test(nodeRef)) {
         return parseInt(nodeRef);
     }
     
-    // 按名称/路径查找
     for (const [idx, info] of Object.entries(indexMap)) {
         if (info.name === nodeRef || info.path === nodeRef || info.path.endsWith('/' + nodeRef)) {
             return parseInt(idx);
@@ -103,35 +93,7 @@ function findNodeIndex(data, indexMap, nodeRef) {
 }
 
 /**
- * 递归收集节点及其所有子节点和组件的索引
- */
-function collectNodeAndChildren(data, nodeIndex, collected = new Set()) {
-    if (collected.has(nodeIndex)) return collected;
-    
-    const node = data[nodeIndex];
-    if (!node) return collected;
-    
-    collected.add(nodeIndex);
-    
-    // 收集所有组件
-    if (node._components) {
-        for (const compRef of node._components) {
-            collected.add(compRef.__id__);
-        }
-    }
-    
-    // 递归收集子节点
-    if (node._children) {
-        for (const childRef of node._children) {
-            collectNodeAndChildren(data, childRef.__id__, collected);
-        }
-    }
-    
-    return collected;
-}
-
-/**
- * 重建所有 __id__ 引用（删除元素后索引变化）
+ * 重建所有 __id__ 引用
  */
 function rebuildReferences(data, deletedIndices) {
     const indexMap = {};
@@ -166,174 +128,75 @@ function rebuildReferences(data, deletedIndices) {
 }
 
 /**
- * 重新排列数组，使其与 _children 顺序一致（节点后跟组件）
- */
-function reorderArrayToMatchChildren(data) {
-    const newArray = [];
-    const indexMap = {};
-    
-    newArray[0] = data[0];
-    newArray[1] = data[1];
-    indexMap[0] = 0;
-    indexMap[1] = 1;
-    
-    const dataByIndex = {};
-    for (let i = 0; i < data.length; i++) {
-        if (data[i]) dataByIndex[i] = data[i];
-    }
-    
-    function addNodeAndChildren(nodeIndex) {
-        if (nodeIndex === null || nodeIndex === undefined) return;
-        
-        const node = data[nodeIndex];
-        if (!node) return;
-        
-        const newIndex = newArray.length;
-        indexMap[nodeIndex] = newIndex;
-        newArray.push(node);
-        
-        if (node._components) {
-            for (const compRef of node._components) {
-                const compIndex = compRef.__id__;
-                if (compIndex !== undefined && dataByIndex[compIndex]) {
-                    const compNewIndex = newArray.length;
-                    indexMap[compIndex] = compNewIndex;
-                    newArray.push(dataByIndex[compIndex]);
-                }
-            }
-        }
-        
-        if (node._children) {
-            for (const childRef of node._children) {
-                addNodeAndChildren(childRef.__id__);
-            }
-        }
-    }
-    
-    const scene = data[1];
-    if (scene && scene._children) {
-        for (const childRef of scene._children) {
-            addNodeAndChildren(childRef.__id__);
-        }
-    }
-    
-    function addRootComponents(nodeIndex) {
-        const node = data[nodeIndex];
-        if (!node || !node._components) return;
-        
-        for (const compRef of node._components) {
-            const compIndex = compRef.__id__;
-            if (compIndex !== undefined && dataByIndex[compIndex] && indexMap[compIndex] === undefined) {
-                const compNewIndex = newArray.length;
-                indexMap[compIndex] = compNewIndex;
-                newArray.push(dataByIndex[compIndex]);
-            }
-        }
-    }
-    
-    addRootComponents(1);
-    addRootComponents(2);
-    
-    function updateRefs(obj) {
-        if (!obj || typeof obj !== 'object') return;
-        
-        if (obj.__id__ !== undefined) {
-            const oldId = obj.__id__;
-            if (indexMap[oldId] !== undefined) {
-                obj.__id__ = indexMap[oldId];
-            }
-        } else {
-            for (const key of Object.keys(obj)) {
-                updateRefs(obj[key]);
-            }
-        }
-    }
-    
-    for (const item of newArray) {
-        updateRefs(item);
-    }
-    
-    return newArray;
-}
-
-/**
  * 检查 CLI Helper 插件状态
- * @returns {object|null} - 插件状态信息，未启动返回 null
  */
 function checkPluginStatus() {
-    const { execSync } = require('child_process');
+    const http = require('http');
     
-    try {
-        const result = execSync('curl.exe -s http://localhost:7455/status', { 
-            timeout: 3000,
-            windowsHide: true,
-            encoding: 'utf8'
+    return new Promise((resolve) => {
+        const req = http.request({
+            hostname: 'localhost',
+            port: 7455,
+            path: '/status',
+            method: 'GET'
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(data));
+                } catch (e) {
+                    resolve(null);
+                }
+            });
         });
-        return JSON.parse(result);
-    } catch (e) {
-        return null;
-    }
+        
+        req.on('error', () => resolve(null));
+        req.setTimeout(3000, () => { req.destroy(); resolve(null); });
+        req.end();
+    });
 }
 
 /**
- * 触发 Cocos Creator 编辑器刷新资源
- * 智能判断：如果修改的场景就是当前打开的场景，才重新打开；否则只刷新资源
- * 编辑器有可能没打开，调用失败不报错
- * @param {string} scenePath - 场景文件路径（必须）
+ * 触发编辑器刷新
  */
 function refreshEditor(scenePath) {
-    // 参数校验
-    if (!scenePath) {
-        console.log(JSON.stringify({ warning: 'refreshEditor: 未提供 scenePath 参数，编辑器不会自动刷新场景' }));
-        return;
-    }
+    if (!scenePath) return;
     
-    const path = require('path');
     const http = require('http');
     
-    // 转换场景路径为 db:// 格式
     const assetsPath = path.dirname(scenePath);
     const projectPath = path.dirname(assetsPath);
     const relativePath = path.relative(projectPath, scenePath).replace(/\\/g, '/');
     const targetSceneUrl = 'db://' + relativePath.replace(/^assets\//, 'assets/');
     
-    // 先查询当前打开的场景
     const getCurrentScene = () => {
         return new Promise((resolve) => {
-            const options = {
+            const req = http.request({
                 hostname: 'localhost',
                 port: 7455,
                 path: '/current-scene',
                 method: 'GET'
-            };
-            
-            const req = http.request(options, (res) => {
+            }, (res) => {
                 let data = '';
                 res.on('data', chunk => data += chunk);
                 res.on('end', () => {
                     try {
-                        const result = JSON.parse(data);
-                        resolve(result.sceneUrl || null);
+                        resolve(JSON.parse(data).sceneUrl || null);
                     } catch (e) {
                         resolve(null);
                     }
                 });
             });
-            
             req.on('error', () => resolve(null));
-            req.setTimeout(3000, () => {
-                req.destroy();
-                resolve(null);
-            });
+            req.setTimeout(3000, () => { req.destroy(); resolve(null); });
             req.end();
         });
     };
     
-    // 发送刷新请求
     const sendRefreshRequest = (sceneUrl) => {
         const postData = sceneUrl ? JSON.stringify({ sceneUrl }) : '';
-        
-        const options = {
+        const req = http.request({
             hostname: 'localhost',
             port: 7455,
             path: '/refresh',
@@ -342,80 +205,46 @@ function refreshEditor(scenePath) {
                 'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(postData)
             }
-        };
-        
-        const req = http.request(options, (res) => {
-            // 忽略响应
-        });
-        
-        req.on('error', () => {
-            // 插件未启动，静默处理
-        });
-        
-        if (postData) {
-            req.write(postData);
-        }
+        }, () => {});
+        req.on('error', () => {});
+        if (postData) req.write(postData);
         req.end();
     };
     
-    // 执行刷新逻辑
     getCurrentScene().then(currentSceneUrl => {
-        if (currentSceneUrl && currentSceneUrl === targetSceneUrl) {
-            // 是当前打开的场景，重新打开
-            sendRefreshRequest(targetSceneUrl);
-        } else {
-            // 不是当前场景，只刷新资源
-            sendRefreshRequest(null);
-        }
+        sendRefreshRequest(currentSceneUrl === targetSceneUrl ? targetSceneUrl : null);
     });
 }
 
 /**
- * 检测并安装 CLI Helper 插件到项目
- * @param {string} scenePath - 场景文件路径
- * @returns {boolean} - 是否已安装
+ * 安装 CLI Helper 插件
  */
 function installPlugin(scenePath) {
     try {
-        const fs = require('fs');
-        const path = require('path');
-        
-        // 获取项目路径
         const assetsPath = path.dirname(scenePath);
         const projectPath = path.dirname(assetsPath);
         const packagesPath = path.join(projectPath, 'packages');
         const pluginPath = path.join(packagesPath, 'cocos-cli-helper');
         
-        // 如果插件已存在，直接返回
-        if (fs.existsSync(pluginPath)) {
-            return true;
-        }
+        if (fs.existsSync(pluginPath)) return true;
         
-        // 创建 packages 目录
         if (!fs.existsSync(packagesPath)) {
             fs.mkdirSync(packagesPath, { recursive: true });
         }
         
-        // 获取 CLI 自带的插件路径
         const cliPluginPath = path.join(__dirname, '..', '..', 'editor-plugin', 'cocos-cli-helper');
         
-        if (!fs.existsSync(cliPluginPath)) {
-            console.log('[CLI] 插件源文件不存在');
-            return false;
-        }
+        if (!fs.existsSync(cliPluginPath)) return false;
         
-        // 复制插件
         fs.cpSync(cliPluginPath, pluginPath, { recursive: true });
-        console.log('[CLI] CLI Helper 插件已安装到项目，请在编辑器中启用');
         return true;
     } catch (e) {
-        console.log(`[CLI] 安装插件失败: ${e.message}`);
         return false;
     }
 }
 
 /**
- * 加载脚本映射（用于显示自定义脚本组件名称）
+ * 加载脚本映射
  */
 function loadScriptMap(scenePath) {
     const projectPath = path.dirname(path.dirname(scenePath));
@@ -426,62 +255,6 @@ function loadScriptMap(scenePath) {
         }
     } catch (e) {}
     return {};
-}
-
-/**
- * 构建节点树输出（自动适配场景和预制体）
- */
-function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoot = true) {
-    const node = data[nodeIndex];
-    if (!node) return '';
-    
-    // 跳过 Scene 类型（场景根节点）
-    const isSceneRoot = node.__type__ === 'cc.Scene';
-    const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
-    const active = node._active !== false ? '●' : '○';
-    const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-    
-    let result = '';
-    
-    // 场景根节点特殊处理
-    if (isSceneRoot) {
-        result = prefix + '[Scene]\n';
-    } else {
-        result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
-        
-        // 添加组件信息
-        if (node._components && node._components.length > 0) {
-            const comps = node._components.map(c => {
-                const comp = data[c.__id__];
-                if (!comp) return `? #${c.__id__}`;
-                const typeName = comp.__type__;
-                let displayName;
-                if (uuidRegex.test(typeName)) {
-                    const scriptInfo = scriptMap[typeName];
-                    displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '[MissingScript]';
-                } else if (typeName === 'MissingScript') {
-                    displayName = '[MissingScript]';
-                } else {
-                    displayName = typeName.replace('cc.', '');
-                }
-                return `${displayName} #${c.__id__}`;
-            }).join(', ');
-            result += ` (${comps})`;
-        }
-        
-        result += '\n';
-    }
-    
-    // 处理子节点
-    if (node._children && node._children.length > 0) {
-        node._children.forEach((childRef, idx) => {
-            const childIsLast = idx === node._children.length - 1;
-            const childPrefix = prefix + (isSceneRoot ? '' : (isRoot ? '' : (isLast ? '    ' : '│   ')));
-            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, isSceneRoot);
-        });
-    }
-    
-    return result;
 }
 
 /**
@@ -497,138 +270,31 @@ function generateFileId() {
 }
 
 /**
- * 创建新预制体
- * @param {string} name - 预制体名称
- * @returns {Array} - 预制体数据
- * 
- * 预制体结构说明：
- * [0] cc.Prefab - 预制体元数据
- * [1] cc.Node - 根节点，_prefab 指向最后一个 PrefabInfo
- * [2] cc.PrefabInfo - 根节点的 PrefabInfo（在最后）
- * 
- * 当添加子节点时，结构变为：
- * [0] cc.Prefab
- * [1] cc.Node (根) _prefab -> [N]
- * [2] cc.Node (子1) _prefab -> [3]
- * [3] cc.PrefabInfo (子1的)
- * ...
- * [N] cc.PrefabInfo (根节点的，在最后)
- */
-function createPrefab(name) {
-    const fileId = generateFileId();
-    return [
-        {
-            "__type__": "cc.Prefab",
-            "_name": "",
-            "_objFlags": 0,
-            "_native": "",
-            "data": { "__id__": 1 },
-            "optimizationPolicy": 0,
-            "asyncLoadAssets": false,
-            "readonly": false
-        },
-        {
-            "__type__": "cc.Node",
-            "_name": name,
-            "_objFlags": 0,
-            "_parent": null,
-            "_children": [],
-            "_active": true,
-            "_components": [],
-            "_prefab": { "__id__": 2 },  // 指向最后的 PrefabInfo
-            "_opacity": 255,
-            "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 },
-            "_contentSize": { "__type__": "cc.Size", "width": 0, "height": 0 },
-            "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 },
-            "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] },
-            "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 },
-            "_skewX": 0,
-            "_skewY": 0,
-            "_is3DNode": false,
-            "_groupIndex": 0,
-            "groupIndex": 0,
-            "_id": ""
-        },
-        {
-            "__type__": "cc.PrefabInfo",
-            "root": { "__id__": 1 },
-            "asset": { "__id__": 0 },
-            "fileId": fileId,
-            "sync": false
-        }
-    ];
-}
-
-/**
- * 创建预制体节点数据（带 PrefabInfo）
- * @param {string} name - 节点名称
- * @param {number} parentId - 父节点索引
- * @param {number} rootId - 预制体根节点索引
- * @param {object} options - 可选参数
- */
-function createPrefabNodeData(name, parentId, rootId, options = {}) {
-    const fileId = generateFileId();
-    const nodeIndex = -1; // 占位，插入时确定
-    const prefabInfoIndex = nodeIndex + 1; // PrefabInfo 紧跟节点
-    
-    const nodeData = {
-        "__type__": "cc.Node",
-        "_name": name,
-        "_objFlags": 0,
-        "_parent": { "__id__": parentId },
-        "_children": [],
-        "_active": options.active !== false,
-        "_components": [],
-        "_prefab": { "__id__": prefabInfoIndex },
-        "_opacity": 255,
-        "_color": { "__type__": "cc.Color", "r": 255, "g": 255, "b": 255, "a": 255 },
-        "_contentSize": { "__type__": "cc.Size", "width": options.width || 0, "height": options.height || 0 },
-        "_anchorPoint": { "__type__": "cc.Vec2", "x": 0.5, "y": 0.5 },
-        "_trs": { "__type__": "TypedArray", "ctor": "Float64Array", "array": [options.x || 0, options.y || 0, 0, 0, 0, 0, 1, 1, 1, 1] },
-        "_eulerAngles": { "__type__": "cc.Vec3", "x": 0, "y": 0, "z": 0 },
-        "_skewX": 0,
-        "_skewY": 0,
-        "_is3DNode": false,
-        "_groupIndex": 0,
-        "groupIndex": 0,
-        "_id": ""
-    };
-    
-    const prefabInfo = {
-        "__type__": "cc.PrefabInfo",
-        "root": { "__id__": rootId },
-        "asset": { "__id__": 0 },
-        "fileId": fileId,
-        "sync": false
-    };
-    
-    return { nodeData, prefabInfo };
-}
-
-/**
  * 获取预制体根节点索引
  */
 function getPrefabRootIndex(data) {
     if (!isPrefab(data)) return null;
-    return 1; // 预制体根节点固定在索引 1
+    return 1;
 }
 
 module.exports = {
+    // 文件操作
     loadScene,
     saveScene,
+    isPrefab,
+    
+    // 索引映射
     buildMaps,
     findNodeIndex,
-    collectNodeAndChildren,
     rebuildReferences,
-    reorderArrayToMatchChildren,
+    
+    // 编辑器交互
     refreshEditor,
     installPlugin,
     checkPluginStatus,
+    
+    // 工具函数
     loadScriptMap,
-    buildTree,
-    isPrefab,
-    createPrefab,
-    createPrefabNodeData,
-    getPrefabRootIndex,
-    generateFileId
+    generateFileId,
+    getPrefabRootIndex
 };

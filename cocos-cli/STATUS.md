@@ -1,6 +1,7 @@
 # Cocos Creator CLI 开发状态
 
-> 最后更新：2026年3月3日
+> 最后更新：2026年3月4日  
+> 版本：1.3.0
 
 ## ✅ 功能清单
 
@@ -11,12 +12,64 @@
 | 修改节点属性 | ✅ 正常 | `set` 命令，支持自动刷新编辑器 |
 | 添加节点 | ✅ 正常 | `add` 命令，支持插入到任意位置 |
 | 添加组件 | ✅ 正常 | `add-component` 命令 |
-| 删除节点 | ✅ 正常 | `delete` 命令，与编辑器行为一致 |
-| 删除组件 | ✅ 正常 | `remove` 命令，支持自动刷新编辑器 |
+| 删除节点/组件 | ✅ 正常 | `remove` 命令，自动识别类型，支持 `--component/--node` 强制指定 |
 | 构建组件映射 | ✅ 正常 | `build` 命令 |
 | 创建预制体 | ✅ 正常 | `prefab-create` 命令 |
-| **创建场景** | ✅ 正常 | `create-scene` 命令，从树形文本一次性生成 |
+| 创建场景 | ✅ 正常 | `create-scene` 命令 |
 | 编辑器自动刷新 | ✅ 正常 | 通过 CLI Helper 插件实现 |
+
+---
+
+## 📁 项目结构
+
+```
+cocos-cli/
+├── bin/
+│   └── cocos-cli.js          # CLI 入口
+├── src/
+│   ├── commands/             # 命令模块
+│   │   ├── add.js            # 添加节点
+│   │   ├── add-component.js  # 添加组件
+│   │   ├── build.js          # 构建映射
+│   │   ├── create-scene.js   # 创建场景
+│   │   ├── get.js            # 获取节点信息
+│   │   ├── prefab-create.js  # 创建预制体
+│   │   ├── remove.js         # 删除节点/组件（统一）
+│   │   ├── set.js            # 设置节点属性
+│   │   └── tree.js           # 查看节点树
+│   └── lib/                  # 核心库
+│       ├── components/       # 组件模块（每种类型独立文件）
+│       │   ├── index.js      # 组件入口
+│       │   ├── sprite.js     # Sprite 组件
+│       │   ├── label.js      # Label 组件
+│       │   ├── button.js     # Button 组件
+│       │   ├── widget.js     # Widget 组件
+│       │   ├── layout.js     # Layout 组件
+│       │   ├── canvas.js     # Canvas 组件
+│       │   ├── camera.js     # Camera 组件
+│       │   └── particle-system.js # ParticleSystem 组件
+│       ├── node-utils.js     # 节点操作
+│       ├── fire-utils.js     # 文件操作
+│       ├── templates.js      # 场景/预制体模板
+│       └── utils.js          # 通用工具
+├── data/
+│   ├── prefab-template.json
+│   ├── scene-template.json
+│   └── script_map.json
+└── editor-plugin/
+    └── cocos-cli-helper/     # 编辑器插件
+```
+
+### 模块职责
+
+| 模块 | 职责 |
+|-----|------|
+| `components/*.js` | 每种组件独立管理：模板、属性处理、默认值 |
+| `components/index.js` | 组件统一入口：创建、解析、属性应用 |
+| `node-utils.js` | 节点相关：创建、属性设置、树构建、状态获取 |
+| `fire-utils.js` | 文件操作：加载、保存、索引映射、编辑器刷新 |
+| `templates.js` | 场景/预制体模板创建 |
+| `utils.js` | 通用工具：颜色、UUID、参数解析、输出格式 |
 
 ---
 
@@ -89,38 +142,28 @@
 
 ```bash
 # 1. 查看节点树（组件会显示索引）
-node bin/cocos-cli.js tree assets/main.fire
+cocos2d-cli tree assets/main.fire
 
 # 2. 添加节点
-node bin/cocos-cli.js add assets/main.fire Canvas NewSprite --type=sprite --x=100 --y=200
+cocos2d-cli add assets/main.fire 2 NewSprite --type=sprite --x=100 --y=200
 
 # 3. 修改属性（自动刷新编辑器）
-node bin/cocos-cli.js set assets/main.fire Canvas/NewSprite --x=200 --scaleX=2
+cocos2d-cli set assets/main.fire 5 --x=200 --scaleX=2
 
-# 4. 删除组件（自动刷新编辑器）
-node bin/cocos-cli.js remove assets/main.fire 15
+# 4. 删除组件（使用索引）
+cocos2d-cli remove assets/main.fire 15
 
-# 5. 删除节点
-node bin/cocos-cli.js delete assets/main.fire Canvas/OldNode
-```
+# 5. 删除节点（使用索引）
+cocos2d-cli remove assets/main.fire 3
 
-### 一次性创建场景（AI 推荐）
-
-```bash
-# 从树形文本结构创建完整场景
-echo "Canvas
-├─ TopBar (sprite, widget) #width=720 #height=80
-│   ├─ ScoreLabel (label)
-│   └─ GoldLabel (label)
-├─ GameArea #width=720 #height=1000
-└─ BottomBar (sprite, widget) #width=720 #height=100 #y=-600
-│   ├─ PauseButton (button)
-│   └─ SkillButtons" | cocos2.4 create-scene assets/game.fire GameScene
+# 6. 强制指定删除类型
+cocos2d-cli remove assets/main.fire 10 --component
+cocos2d-cli remove assets/main.fire 5 --node
 ```
 
 ### 组件规则
 
-**渲染组件（每节点仅一个）**：`sprite`, `label`, `particle`
+**渲染组件（每节点仅一个）**：`sprite`, `label`, `particleSystem`
 
 **功能组件（可多个共存）**：`button`, `widget`, `layout`, `camera`, `canvas`
 
@@ -133,7 +176,7 @@ BtnConfirm (button, widget)
 └─ BtnText (label)
 ```
 
-**节点属性选项**：`#width=`, `#height=`, `#x=`, `#y=`
+**节点属性选项**：`--width=`, `--height=`, `--x=`, `--y=`, `--active=`, `--color=`
 
 ### 注意事项
 
@@ -145,12 +188,38 @@ BtnConfirm (button, widget)
 
 ---
 
+## 🔄 版本历史
+
+### v1.3.0 (2026-03-04)
+- **架构重构**：按职责拆分模块
+  - 每种组件独立文件 `src/lib/components/*.js`
+  - 节点操作独立模块 `node-utils.js`
+  - 模板独立模块 `templates.js`
+- **命令整合**：`delete.js`、`remove-component.js` 合并到 `remove.js`
+- **统一命名**：所有命令提示统一为 `cocos2d-cli`
+- **代码优化**：消除重复代码，统一输出格式
+
+### v1.2.0
+- 新增 `create-scene` 命令
+- 优化编辑器自动刷新机制
+
+### v1.1.0
+- 新增 `prefab-create` 命令
+- 支持预制体操作
+
+### v1.0.0
+- 初始版本
+- 基础场景操作功能
+
+---
+
 ## 🗑️ 已删除功能
 
 | 功能 | 删除原因 |
 |------|---------|
 | 会话模式（open/close）| 直接操作文件更简单高效 |
-| session.js | 不再需要会话管理 |
+| `delete.js` 命令 | 合并到 `remove.js` |
+| `remove-component.js` 命令 | 合并到 `remove.js` |
 
 ---
 
@@ -165,4 +234,4 @@ BtnConfirm (button, widget)
 
 ## 📞 问题反馈
 
-如有问题或建议，请记录在此处。
+如有问题或建议，请在项目 Issues 中反馈。

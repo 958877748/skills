@@ -14,7 +14,6 @@ const commands = {
     add: '../src/commands/add',
     'add-component': '../src/commands/add-component',
     'remove': '../src/commands/remove',
-    delete: '../src/commands/delete',
     build: '../src/commands/build',
     'create-prefab': '../src/commands/prefab-create',
     'create-scene': '../src/commands/create-scene'
@@ -34,8 +33,7 @@ Cocos Creator CLI - 场景/预制体操作工具集
   set <场景.fire | 预制体.prefab> <索引> [选项]  修改节点属性
   add <场景.fire | 预制体.prefab> <父索引> <名称>  添加节点
   add-component <文件> <节点索引> <类型>     给节点添加组件
-  remove <文件> <索引>                       删除节点或组件
-  delete <文件> <节点索引>                   删除节点
+  remove <文件> <索引> [--component|--node]  删除节点或组件（自动检测类型）
   build <项目目录>                           构建组件映射
   create-prefab [JSON文件] <输出.prefab>     创建预制体（不传JSON则创建默认）
   create-scene <JSON文件> <输出.fire>        从JSON文件创建场景
