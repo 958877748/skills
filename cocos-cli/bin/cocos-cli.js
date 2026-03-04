@@ -79,6 +79,11 @@ JSON 格式 (create-prefab / create-scene):
 
   节点属性: name, width, height, x, y, color, opacity, anchorX, anchorY, rotation, scaleX, scaleY, active
 
+  组件写法:
+    简写: "sprite" 或 "label"
+    完整: { "type": "sprite", "sizeMode": 1 }
+    完整: { "type": "label", "string": "文本", "fontSize": 32, "color": "#fff" }
+
   组件类型:
     sprite   - 精灵���默认白色方块，节点设置什么颜色就显示什么颜色
     label    - 文本，支持 string, fontSize, color(兼容)
