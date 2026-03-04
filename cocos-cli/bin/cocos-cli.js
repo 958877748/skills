@@ -105,8 +105,6 @@ JSON 格式 (create-prefab / create-scene):
 
   # 从 JSON 创建预制体
   type panel.json | cocos2d-cli create-prefab assets/panel.prefab
-
-版本: 1.1.0
 `);
 }
 
