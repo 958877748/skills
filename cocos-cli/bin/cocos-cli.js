@@ -80,7 +80,7 @@ JSON 格式 (create-prefab / create-scene):
   节点属性: name, width, height, x, y, color, opacity, anchorX, anchorY, rotation, scaleX, scaleY, active
 
   组件类型:
-    sprite   - 精灵，显示图片/色块
+    sprite   - 精灵���默认白色方块，节点设置什么颜色就显示什么颜色
     label    - 文本，支持 string, fontSize, color(兼容)
     button   - 按钮，通常配合 sprite 使用才能看见
     widget   - 对齐，支持 top, bottom, left, right
