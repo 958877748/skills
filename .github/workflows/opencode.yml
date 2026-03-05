@@ -24,6 +24,11 @@ jobs:
            fetch-depth: 1
            persist-credentials: false
 
+       - name: Configure Git  # ← 加上这个步骤
+         run: |
+          git config --global user.name "OpenCode Agent"
+          git config --global user.email "opencode-agent[bot]@users.noreply.github.com"
+
        - name: Run OpenCode
          uses: anomalyco/opencode/github@latest
          env:
