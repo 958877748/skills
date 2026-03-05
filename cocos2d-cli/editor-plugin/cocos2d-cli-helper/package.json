@@ -1,5 +1,5 @@
 {
-  "name": "cocos-cli-helper",
+  "name": "cocos2d-cli-helper",
   "version": "1.2.0",
   "description": "Cocos Creator CLI 辅助插件 - 支持场景刷新、重新打开和查询当前场景",
   "author": "Cocos CLI",

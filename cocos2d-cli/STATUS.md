@@ -23,9 +23,9 @@
 ## 📁 项目结构
 
 ```
-cocos-cli/
+cocos2d-cli/
 ├── bin/
-│   └── cocos-cli.js          # CLI 入口
+│   └── cocos2d-cli.js        # CLI 入口
 ├── src/
 │   ├── commands/             # 命令模块
 │   │   ├── add.js            # 添加节点
@@ -57,7 +57,7 @@ cocos-cli/
 │   ├── scene-template.json
 │   └── script_map.json
 └── editor-plugin/
-    └── cocos-cli-helper/     # 编辑器插件
+    └── cocos2d-cli-helper/     # 编辑器插件
 ```
 
 ### 模块职责
@@ -124,7 +124,7 @@ cocos-cli/
 
 ### 编辑器自动刷新机制
 
-**CLI Helper 插件**（`editor-plugin/cocos-cli-helper/`）：
+**CLI Helper 插件**（`editor-plugin/cocos2d-cli-helper/`）：
 - 启动 HTTP 服务器（端口 7455）
 - 接收 `/refresh` POST 请求
 - 刷新资源数据库：`Editor.assetdb.refresh()`
