@@ -119,6 +119,7 @@ if (!commandPath) {
 try {
     const command = require(commandPath);
     command.run(args.slice(1));
+    process.exit(0);
 }
 catch (err) {
     console.error(`命令执行失败: ${err.message}`);
