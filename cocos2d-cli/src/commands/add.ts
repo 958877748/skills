@@ -1,30 +1,22 @@
-/**
- * add 命令 - 添加节点（支持场景和预制体）
- */
+import * as fs from 'fs';
+import * as path from 'path';
+import { loadScene, saveScene, buildMaps, refreshEditor, isPrefab, generateFileId } from '../lib/fire-utils';
+import { parseOptions, outputError, outputSuccess } from '../lib/utils';
+import { createNodeData } from '../lib/node-utils';
+import { createComponent } from '../lib/components';
 
-const { loadScene, saveScene, buildMaps, refreshEditor, isPrefab, generateFileId, getPrefabRootIndex } = require('../lib/fire-utils');
-const { parseOptions, outputError, outputSuccess } = require('../lib/utils');
-const { createNodeData } = require('../lib/node-utils');
-const { createComponent } = require('../lib/components');
-
-/**
- * 获取根节点 PrefabInfo 的索引
- */
-function getRootPrefabInfoIndex(data) {
+function getRootPrefabInfoIndex(data: unknown[]): number {
     for (let i = data.length - 1; i >= 0; i--) {
-        if (data[i].__type__ === 'cc.PrefabInfo') {
-            const rootRef = data[i].root?.__id__;
+        if ((data[i] as { __type__: string }).__type__ === 'cc.PrefabInfo') {
+            const rootRef = (data[i] as { root?: { __id__: number } }).root?.__id__;
             if (rootRef === 1) return i;
         }
     }
     return data.length - 1;
 }
 
-/**
- * 获取节点子树的结束索引
- */
-function getSubtreeEndIndex(data, nodeIndex) {
-    const node = data[nodeIndex];
+function getSubtreeEndIndex(data: unknown[], nodeIndex: number): number {
+    const node = data[nodeIndex] as { _children?: { __id__: number }[]; _components?: { __id__: number }[]; _prefab?: { __id__: number } } | undefined;
     if (!node) return nodeIndex;
     
     let lastIndex = nodeIndex;
@@ -49,11 +41,8 @@ function getSubtreeEndIndex(data, nodeIndex) {
     return lastIndex;
 }
 
-/**
- * 重建所有 __id__ 引用
- */
-function rebuildReferencesForInsert(data, insertIndex, count) {
-    const indexMap = {};
+function rebuildReferencesForInsert(data: unknown[], insertIndex: number, count: number): Record<number, number> {
+    const indexMap: Record<number, number> = {};
     
     for (let oldIndex = 0; oldIndex < data.length; oldIndex++) {
         if (oldIndex < insertIndex) {
@@ -63,17 +52,19 @@ function rebuildReferencesForInsert(data, insertIndex, count) {
         }
     }
     
-    function updateRef(obj) {
+    function updateRef(obj: unknown): void {
         if (!obj || typeof obj !== 'object') return;
         
-        if (obj.__id__ !== undefined) {
-            const oldId = obj.__id__;
+        const o = obj as { __id__?: number };
+        if (o.__id__ !== undefined) {
+            const oldId = o.__id__;
             if (indexMap[oldId] !== undefined) {
-                obj.__id__ = indexMap[oldId];
+                o.__id__ = indexMap[oldId];
             }
         } else {
-            for (const key of Object.keys(obj)) {
-                updateRef(obj[key]);
+            const o2 = obj as Record<string, unknown>;
+            for (const key of Object.keys(o2)) {
+                updateRef(o2[key]);
             }
         }
     }
@@ -85,7 +76,7 @@ function rebuildReferencesForInsert(data, insertIndex, count) {
     return indexMap;
 }
 
-function run(args) {
+export function run(args: string[]): void {
     if (args.length < 3) {
         outputError('用法: cocos2d-cli add <场景.fire | 预制体.prefab> <父节点索引> <节点名称> [选项]');
         return;
@@ -95,16 +86,15 @@ function run(args) {
     const parentRef = args[1];
     const nodeName = args[2];
     
-    const options = parseOptions(args, 3);
+    const options = parseOptions(args, 3) as Record<string, string | number | boolean>;
     
-    // 转换数值类型
-    if (options.x) options.x = parseFloat(options.x) || 0;
-    if (options.y) options.y = parseFloat(options.y) || 0;
-    if (options.width) options.width = parseFloat(options.width) || 0;
-    if (options.height) options.height = parseFloat(options.height) || 0;
-    if (options.at !== undefined) options.at = parseInt(options.at);
+    if (options.x) options.x = parseFloat(options.x as string) || 0;
+    if (options.y) options.y = parseFloat(options.y as string) || 0;
+    if (options.width) options.width = parseFloat(options.width as string) || 0;
+    if (options.height) options.height = parseFloat(options.height as string) || 0;
+    if (options.at !== undefined) options.at = parseInt(options.at as string);
     if (options.active !== undefined) options.active = options.active !== 'false';
-    if (options.fontSize) options.fontSize = parseInt(options.fontSize) || 40;
+    if (options.fontSize) options.fontSize = parseInt(options.fontSize as string) || 40;
     
     try {
         const data = loadScene(filePath);
@@ -122,16 +112,15 @@ function run(args) {
             return;
         }
         
-        const parentNode = data[parentIndex];
+        const parentNode = data[parentIndex] as { _children?: { __id__: number }[] };
         const isRootChild = prefab && parentIndex === 1;
         
-        // 确定插入位置
-        let insertIndex;
+        let insertIndex: number;
         
         if (!parentNode._children || parentNode._children.length === 0) {
             insertIndex = parentIndex + 1;
         } else {
-            const targetPosition = options.at >= 0 ? options.at : parentNode._children.length;
+            const targetPosition = (options.at as number) >= 0 ? options.at as number : parentNode._children.length;
             
             if (targetPosition === 0) {
                 insertIndex = parentNode._children[0].__id__;
@@ -143,35 +132,30 @@ function run(args) {
             }
         }
         
-        let newNodeIndex;
+        let newNodeIndex: number;
         
         if (prefab) {
-            // 预制体模式
             const rootPrefabInfoOldIdx = getRootPrefabInfoIndex(data);
-            const rootPrefabInfo = data[rootPrefabInfoOldIdx];
             
-            // 创建节点
-            const nodeData = createNodeData(nodeName, parentIndex, options);
+            const nodeData = createNodeData(nodeName, parentIndex, options as Record<string, string>);
             
-            // 创建组件
             let compData = null;
             if (options.type) {
-                compData = createComponent(options.type, insertIndex);
+                compData = createComponent(options.type as string, insertIndex);
                 if (compData) {
                     if (options.type === 'label') {
                         if (options.fontSize) {
-                            compData._fontSize = options.fontSize;
-                            compData._lineHeight = options.fontSize;
+                            (compData as { _fontSize: number })._fontSize = options.fontSize as number;
+                            (compData as { _lineHeight: number })._lineHeight = options.fontSize as number;
                         }
                         if (options.string) {
-                            compData._string = options.string;
-                            compData._N$string = options.string;
+                            (compData as { _string: string })._string = options.string as string;
+                            (compData as { _N$string: string })._N$string = options.string as string;
                         }
                     }
                 }
             }
             
-            // 创建 PrefabInfo
             const prefabInfo = {
                 "__type__": "cc.PrefabInfo",
                 "root": { "__id__": 1 },
@@ -200,36 +184,35 @@ function run(args) {
             newNodeIndex = insertIndex;
             
             if (compData) {
-                compData.node = { "__id__": newNodeIndex };
-                nodeData._components.push({ "__id__": newNodeIndex + 1 });
-                nodeData._prefab = { "__id__": newNodeIndex + 2 };
+                (compData as { node: { __id__: number } }).node = { __id__: newNodeIndex };
+                (nodeData as { _components: { __id__: number }[] })._components.push({ __id__: newNodeIndex + 1 });
+                (nodeData as { _prefab: { __id__: number } })._prefab = { __id__: newNodeIndex + 2 };
             } else {
-                nodeData._prefab = { "__id__": newNodeIndex + 1 };
+                (nodeData as { _prefab: { __id__: number } })._prefab = { __id__: newNodeIndex + 1 };
             }
             
             if (isRootChild) {
-                data.push(rootPrefabInfo);
-                data[1]._prefab = { "__id__": data.length - 1 };
+                data.push(prefabInfo);
+                (data[1] as { _prefab: { __id__: number } })._prefab = { __id__: data.length - 1 };
             }
             
         } else {
-            // 场景模式
-            const newNode = createNodeData(nodeName, parentIndex, options);
+            const newNode = createNodeData(nodeName, parentIndex, options as Record<string, string>);
             
             const itemsToInsert = [newNode];
             
             let compData = null;
             if (options.type) {
-                compData = createComponent(options.type, insertIndex);
+                compData = createComponent(options.type as string, insertIndex);
                 if (compData) {
                     if (options.type === 'label') {
                         if (options.fontSize) {
-                            compData._fontSize = options.fontSize;
-                            compData._lineHeight = options.fontSize;
+                            (compData as { _fontSize: number })._fontSize = options.fontSize as number;
+                            (compData as { _lineHeight: number })._lineHeight = options.fontSize as number;
                         }
                         if (options.string) {
-                            compData._string = options.string;
-                            compData._N$string = options.string;
+                            (compData as { _string: string })._string = options.string as string;
+                            (compData as { _N$string: string })._N$string = options.string as string;
                         }
                     }
                 }
@@ -245,15 +228,14 @@ function run(args) {
             newNodeIndex = insertIndex;
             
             if (compData) {
-                compData.node = { "__id__": newNodeIndex };
-                newNode._components.push({ "__id__": newNodeIndex + 1 });
+                (compData as { node: { __id__: number } }).node = { __id__: newNodeIndex };
+                (newNode as { _components: { __id__: number }[] })._components.push({ __id__: newNodeIndex + 1 });
             }
         }
         
-        // 更新父节点的 _children
-        if (!parentNode._children) parentNode._children = [];
-        const insertPosition = options.at >= 0 ? options.at : parentNode._children.length;
-        parentNode._children.splice(insertPosition, 0, { "__id__": newNodeIndex });
+        if (!parentNode._children) (parentNode as { _children: { __id__: number }[] })._children = [];
+        const insertPosition = (options.at as number) >= 0 ? options.at as number : parentNode._children.length;
+        parentNode._children.splice(insertPosition, 0, { __id__: newNodeIndex });
         
         saveScene(filePath, data);
         refreshEditor(filePath);
@@ -266,8 +248,8 @@ function run(args) {
         });
         
     } catch (err) {
-        outputError(err.message);
+        outputError((err as Error).message);
     }
 }
 
-module.exports = { run };
+export default { run };

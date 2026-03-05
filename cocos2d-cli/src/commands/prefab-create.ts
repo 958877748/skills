@@ -1,25 +1,37 @@
-/**
- * prefab-create 命令 - 从 JSON 结构创建预制体文件
- */
+import * as fs from 'fs';
+import * as path from 'path';
+import { outputError, outputSuccess } from '../lib/utils';
+import { parseColor } from '../lib/utils';
+import { createNodeData } from '../lib/node-utils';
+import { parseComponent, createComponent, applyComponentProps } from '../lib/components';
+import { createPrefab } from '../lib/templates';
+import { generateFileId } from '../lib/fire-utils';
+import { SceneData } from '../lib/types';
 
-const fs = require('fs');
-const path = require('path');
-const { outputError, outputSuccess } = require('../lib/utils');
-const { createNodeData } = require('../lib/node-utils');
-const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
-const { createPrefab, generateFileId } = require('../lib/templates');
+interface NodeDef {
+    name?: string;
+    active?: boolean;
+    opacity?: number;
+    width?: number;
+    height?: number;
+    x?: number;
+    y?: number;
+    rotation?: number;
+    scaleX?: number;
+    scaleY?: number;
+    anchorX?: number;
+    anchorY?: number;
+    color?: string;
+    components?: (string | Record<string, unknown>)[];
+    children?: NodeDef[];
+}
 
-/**
- * 从 JSON 定义创建预制体数据
- */
-function createPrefabData(nodeDef) {
-    const data = createPrefab(nodeDef.name || 'Node');
+function createPrefabData(nodeDef: NodeDef): SceneData {
+    const data = createPrefab(nodeDef.name || 'Node') as SceneData;
     
-    // 更新根节点
     const root = data[1];
     applyNodeDefToNode(root, nodeDef, null);
     
-    // 递归添加子节点
     if (nodeDef.children && nodeDef.children.length > 0) {
         for (const childDef of nodeDef.children) {
             addChildNode(data, childDef, 1);
@@ -29,65 +41,56 @@ function createPrefabData(nodeDef) {
     return data;
 }
 
-/**
- * 应用 JSON 定义到节点
- */
-function applyNodeDefToNode(node, def, parentId) {
-    if (def.name) node._name = def.name;
-    if (def.active !== undefined) node._active = def.active;
-    if (def.opacity !== undefined) node._opacity = def.opacity;
-    if (def.width !== undefined) node._contentSize.width = def.width;
-    if (def.height !== undefined) node._contentSize.height = def.height;
-    if (def.x !== undefined) node._trs.array[0] = def.x;
-    if (def.y !== undefined) node._trs.array[1] = def.y;
+function applyNodeDefToNode(node: unknown, def: NodeDef, parentId: number | null): void {
+    const n = node as Record<string, unknown>;
+    if (def.name) n._name = def.name;
+    if (def.active !== undefined) n._active = def.active;
+    if (def.opacity !== undefined) n._opacity = def.opacity;
+    if (def.width !== undefined) (n._contentSize as Record<string, number>).width = def.width;
+    if (def.height !== undefined) (n._contentSize as Record<string, number>).height = def.height;
+    if (def.x !== undefined) (n._trs as { array: number[] }).array[0] = def.x;
+    if (def.y !== undefined) (n._trs as { array: number[] }).array[1] = def.y;
     if (def.rotation !== undefined) {
-        node._trs.array[5] = def.rotation * Math.PI / 180;
-        node._eulerAngles.z = def.rotation;
+        (n._trs as { array: number[] }).array[5] = def.rotation * Math.PI / 180;
+        (n._eulerAngles as Record<string, number>).z = def.rotation;
     }
-    if (def.scaleX !== undefined) node._trs.array[7] = def.scaleX;
-    if (def.scaleY !== undefined) node._trs.array[8] = def.scaleY;
-    if (def.anchorX !== undefined) node._anchorPoint.x = def.anchorX;
-    if (def.anchorY !== undefined) node._anchorPoint.y = def.anchorY;
+    if (def.scaleX !== undefined) (n._trs as { array: number[] }).array[7] = def.scaleX;
+    if (def.scaleY !== undefined) (n._trs as { array: number[] }).array[8] = def.scaleY;
+    if (def.anchorX !== undefined) (n._anchorPoint as Record<string, number>).x = def.anchorX;
+    if (def.anchorY !== undefined) (n._anchorPoint as Record<string, number>).y = def.anchorY;
     if (def.color) {
-        const { parseColor } = require('../lib/utils');
         const parsed = parseColor(def.color);
         if (parsed) {
-            node._color = { "__type__": "cc.Color", ...parsed };
+            n._color = { "__type__": "cc.Color", ...parsed };
         }
     }
     if (parentId !== null) {
-        node._parent = { "__id__": parentId };
+        (n as { _parent: { __id__: number } })._parent = { "__id__": parentId };
     }
 }
 
-/**
- * 添加子节点
- */
-function addChildNode(data, def, parentIndex) {
+function addChildNode(data: SceneData, def: NodeDef, parentIndex: number): void {
     const nodeIndex = data.length;
-    const node = createNodeData(def.name || 'Node', parentIndex, def);
+    const node = createNodeData(def.name || 'Node', parentIndex, def as Record<string, string>);
     
-    // 设置 _prefab 为 null，后面会添加 PrefabInfo
-    node._prefab = null;
+    (node as { _prefab: null })._prefab = null;
     
     data.push(node);
     
-    // 添加组件
     if (def.components) {
         for (const compDef of def.components) {
-            const parsed = parseComponent(compDef);
+            const parsed = parseComponent(compDef as string | Record<string, unknown>);
             if (parsed) {
                 const comp = createComponent(parsed.type, nodeIndex);
                 if (comp) {
                     applyComponentProps(comp, parsed.props, node);
-                    data.push(comp);
-                    node._components.push({ "__id__": data.length - 1 });
+                    data.push(comp as unknown as SceneData[number]);
+                    (node as { _components: { __id__: number }[] })._components.push({ "__id__": data.length - 1 });
                 }
             }
         }
     }
     
-    // 添加 PrefabInfo
     const prefabInfo = {
         "__type__": "cc.PrefabInfo",
         "root": { "__id__": 1 },
@@ -95,13 +98,11 @@ function addChildNode(data, def, parentIndex) {
         "fileId": generateFileId(),
         "sync": false
     };
-    data.push(prefabInfo);
-    node._prefab = { "__id__": data.length - 1 };
+    data.push(prefabInfo as unknown as SceneData[number]);
+    (node as { _prefab: { __id__: number } })._prefab = { "__id__": data.length - 1 };
     
-    // 更新父节点
-    data[parentIndex]._children.push({ "__id__": nodeIndex });
+    (data[parentIndex] as { _children: { __id__: number }[] })._children.push({ "__id__": nodeIndex });
     
-    // 递归处理子节点
     if (def.children && def.children.length > 0) {
         for (const childDef of def.children) {
             addChildNode(data, childDef, nodeIndex);
@@ -109,17 +110,14 @@ function addChildNode(data, def, parentIndex) {
     }
 }
 
-function run(args) {
+export function run(args: string[]): void {
     if (args.length < 1) {
-        outputError({ 
-            message: '用法: cocos2d-cli create-prefab [JSON文件路径] <输出路径.prefab>',
-            hint: '不传 JSON 则创建默认预制体'
-        });
+        outputError('用法: cocos2d-cli create-prefab [JSON文件路径] <输出路径.prefab>');
         return;
     }
 
-    let jsonPath = null;
-    let outputPath;
+    let jsonPath: string | null = null;
+    let outputPath: string;
 
     if (args.length === 1) {
         outputPath = args[0];
@@ -128,7 +126,6 @@ function run(args) {
         outputPath = args[1];
     }
 
-    // 没有传 JSON，创建默认预制体
     if (!jsonPath) {
         const prefabName = path.basename(outputPath, '.prefab');
         
@@ -154,7 +151,7 @@ function run(args) {
             });
             return;
         } catch (err) {
-            outputError(err.message);
+            outputError((err as Error).message);
             return;
         }
     }
@@ -194,8 +191,8 @@ function run(args) {
         });
 
     } catch (err) {
-        outputError(err.message);
+        outputError((err as Error).message);
     }
 }
 
-module.exports = { run };
+export default { run };

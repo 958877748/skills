@@ -1,11 +1,7 @@
-/**
- * tree 命令 - 查看节点树（支持场景和预制体）
- */
+import { loadScene, loadScriptMap, isPrefab } from '../lib/fire-utils';
+import { buildTree } from '../lib/node-utils';
 
-const { loadScene, loadScriptMap, isPrefab } = require('../lib/fire-utils');
-const { buildTree } = require('../lib/node-utils');
-
-function run(args) {
+export function run(args: string[]): void {
     const filePath = args[0];
     
     if (!filePath) {
@@ -18,17 +14,16 @@ function run(args) {
         const scriptMap = loadScriptMap(filePath);
         const prefab = isPrefab(data);
         
-        // 输出文件类型
         if (prefab) {
-            console.log(`[Prefab] ${data[1]._name || 'Root'}\n`);
+            console.log(`[Prefab] ${(data[1] as { _name?: string })._name || 'Root'}\n`);
         } else {
             console.log(`[Scene]\n`);
         }
         
         console.log(buildTree(data, scriptMap, 1));
     } catch (err) {
-        console.log(JSON.stringify({ error: err.message }));
+        console.log(JSON.stringify({ error: (err as Error).message }));
     }
 }
 
-module.exports = { run };
+export default { run };

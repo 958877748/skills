@@ -1,11 +1,7 @@
-/**
- * get 命令 - 获取节点信息
- */
+import { loadScene, buildMaps, findNodeIndex } from '../lib/fire-utils';
+import { getNodeState } from '../lib/node-utils';
 
-const { loadScene, buildMaps, findNodeIndex } = require('../lib/fire-utils');
-const { getNodeState } = require('../lib/node-utils');
-
-function run(args) {
+export function run(args: string[]): void {
     if (args.length < 2) {
         console.log(JSON.stringify({ error: '用法: cocos2d-cli get <场景.fire | 预制体.prefab> <节点索引|名称>' }));
         return;
@@ -34,8 +30,8 @@ function run(args) {
         console.log(JSON.stringify(getNodeState(data, node, idx)));
 
     } catch (err) {
-        console.log(JSON.stringify({ error: err.message }));
+        console.log(JSON.stringify({ error: (err as Error).message }));
     }
 }
 
-module.exports = { run };
+export default { run };

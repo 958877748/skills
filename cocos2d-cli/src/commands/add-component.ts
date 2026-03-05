@@ -1,15 +1,10 @@
-/**
- * add-component 命令 - 给已存在的节点添加组件
- */
+import * as fs from 'fs';
+import * as path from 'path';
+import { loadScene, saveScene, buildMaps, findNodeIndex, refreshEditor } from '../lib/fire-utils';
+import { outputError, outputSuccess, generateId } from '../lib/utils';
+import { createComponent } from '../lib/components';
 
-const { loadScene, saveScene, buildMaps, findNodeIndex, refreshEditor } = require('../lib/fire-utils');
-const { outputError, outputSuccess, generateId } = require('../lib/utils');
-const { createComponent } = require('../lib/components');
-const fs = require('fs');
-const path = require('path');
-
-// 加载脚本映射
-function loadScriptMap(projectPath) {
+function loadScriptMap(projectPath: string): Record<string, { name: string }> {
     const mapPath = path.join(projectPath, 'data', 'script_map.json');
     try {
         if (fs.existsSync(mapPath)) {
@@ -19,10 +14,9 @@ function loadScriptMap(projectPath) {
     return {};
 }
 
-// 创建自定义脚本组件
-function createScriptComponent(scriptUuid, nodeId, scriptMap) {
-    const scriptInfo = scriptMap[scriptUuid];
-    const typeName = scriptInfo ? scriptInfo.name : scriptUuid;
+function createScriptComponent(scriptUuid: string | null, nodeId: number, scriptMap: Record<string, { name: string }>): Record<string, unknown> {
+    const scriptInfo = scriptUuid ? scriptMap[scriptUuid] : undefined;
+    const typeName = scriptInfo ? scriptInfo.name : scriptUuid || '';
     
     return {
         "__type__": typeName,
@@ -34,7 +28,7 @@ function createScriptComponent(scriptUuid, nodeId, scriptMap) {
     };
 }
 
-function run(args) {
+export function run(args: string[]): void {
     if (args.length < 3) {
         outputError('用法: cocos2d-cli add-component <场景文件路径> <节点路径> <组件类型>');
         return;
@@ -55,14 +49,13 @@ function run(args) {
             return;
         }
         
-        const node = data[nodeIndex];
+        const node = data[nodeIndex] as { _components?: { __id__: number }[]; _name: string };
         
-        // 检查是否已有该类型组件
         const ccType = 'cc.' + componentType.charAt(0).toUpperCase() + componentType.slice(1);
         const existingComp = node._components?.find(comp => {
             const compData = data[comp.__id__];
             if (!compData) return false;
-            const compType = compData.__type__;
+            const compType = (compData as { __type__: string }).__type__;
             return compType === componentType || compType === ccType;
         });
         
@@ -74,15 +67,13 @@ function run(args) {
         const compIndex = data.length;
         let componentData;
         
-        // 尝试使用内置组件
         componentData = createComponent(componentType, nodeIndex);
         
         if (!componentData) {
-            // 自定义脚本组件
             const projectPath = path.dirname(scenePath);
             const scriptMap = loadScriptMap(projectPath);
             
-            let scriptUuid = null;
+            let scriptUuid: string | null = null;
             for (const [uuid, info] of Object.entries(scriptMap)) {
                 if (info.name === componentType) {
                     scriptUuid = uuid;
@@ -100,7 +91,7 @@ function run(args) {
         
         data.push(componentData);
         
-        if (!node._components) node._components = [];
+        if (!node._components) (node as { _components: { __id__: number }[] })._components = [];
         node._components.push({ "__id__": compIndex });
         
         saveScene(scenePath, data);
@@ -108,13 +99,13 @@ function run(args) {
         
         outputSuccess({
             componentIndex: compIndex,
-            componentType: componentData.__type__,
+            componentType: (componentData as { __type__: string }).__type__,
             nodeIndex,
             nodeName: node._name
         });
     } catch (err) {
-        outputError(err.message);
+        outputError((err as Error).message);
     }
 }
 
-module.exports = { run };
+export default { run };

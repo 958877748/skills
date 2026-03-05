@@ -1,11 +1,7 @@
-/**
- * build 命令 - 构建组件映射
- */
+import * as fs from 'fs';
+import * as path from 'path';
 
-const fs = require('fs');
-const path = require('path');
-
-function run(args) {
+export function run(args: string[]): void {
     if (args.length < 1) {
         console.log(JSON.stringify({ error: '用法: cocos2d-cli build <项目目录>' }));
         return;
@@ -20,10 +16,9 @@ function run(args) {
         return;
     }
     
-    const scriptMap = {};
-    let processedCount = 0;
+    const scriptMap: Record<string, string> = {};
     
-    function scanDirectory(dir) {
+    function scanDirectory(dir: string): void {
         const items = fs.readdirSync(dir);
         
         for (const item of items) {
@@ -36,21 +31,17 @@ function run(args) {
                 try {
                     const content = fs.readFileSync(fullPath, 'utf8');
                     
-                    // 查找 cc._RF.push 调用
                     const match = content.match(/cc\._RF\.push\(module,\s*['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/);
                     
                     if (match) {
                         const hash = match[1];
                         const className = match[2];
                         
-                        // 只存储脚本相关的哈希（不以 'cc.' 开头的）
                         if (!className.startsWith('cc.')) {
                             scriptMap[hash] = className;
-                            processedCount++;
                         }
                     }
                 } catch (err) {
-                    // 忽略读取错误
                 }
             }
         }
@@ -58,13 +49,11 @@ function run(args) {
     
     scanDirectory(importsDir);
     
-    // 确保输出目录存在
     const outputDir = path.dirname(outputFile);
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
     
-    // 写入输出文件
     fs.writeFileSync(outputFile, JSON.stringify(scriptMap, null, 2), 'utf8');
     
     console.log(JSON.stringify({
@@ -75,4 +64,4 @@ function run(args) {
     }, null, 2));
 }
 
-module.exports = { run };
+export default { run };

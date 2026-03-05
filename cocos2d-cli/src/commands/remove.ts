@@ -1,23 +1,16 @@
-/**
- * remove 命令 - 统一的删除命令
- * 支持删除节点和组件
- */
+import { loadScene, saveScene, rebuildReferences, refreshEditor } from '../lib/fire-utils';
+import { outputError, outputSuccess } from '../lib/utils';
+import { collectNodeAndChildren, detectItemType } from '../lib/node-utils';
+import { SceneData } from '../lib/types';
 
-const { loadScene, saveScene, rebuildReferences, refreshEditor, loadScriptMap } = require('../lib/fire-utils');
-const { outputError, outputSuccess } = require('../lib/utils');
-const { buildTree, collectNodeAndChildren, detectItemType } = require('../lib/node-utils');
-
-/**
- * 删除组件
- */
-function removeComponent(data, compIndex) {
+function removeComponent(data: SceneData, compIndex: number): Record<string, unknown> {
     const compData = data[compIndex];
     if (!compData) {
         return { error: `组件索引 ${compIndex} 不存在` };
     }
     
     const compType = compData.__type__;
-    const nodeId = compData.node?.__id__;
+    const nodeId = (compData as { node?: { __id__: number } }).node?.__id__;
     
     if (nodeId === undefined) {
         return { error: `索引 ${compIndex} 不是组件` };
@@ -30,12 +23,10 @@ function removeComponent(data, compIndex) {
     
     const nodeName = node._name || '(unnamed)';
     
-    // 从节点的 _components 中移除引用
     if (node._components) {
         node._components = node._components.filter(c => c.__id__ !== compIndex);
     }
     
-    // 重建引用并删除组件
     const indicesToDelete = new Set([compIndex]);
     rebuildReferences(data, indicesToDelete);
     data.splice(compIndex, 1);
@@ -50,10 +41,7 @@ function removeComponent(data, compIndex) {
     };
 }
 
-/**
- * 删除节点
- */
-function removeNode(data, nodeIndex) {
+function removeNode(data: SceneData, nodeIndex: number): Record<string, unknown> {
     const node = data[nodeIndex];
     if (!node) {
         return { error: `节点索引 ${nodeIndex} 不存在` };
@@ -65,10 +53,8 @@ function removeNode(data, nodeIndex) {
     
     const nodeName = node._name || '(unnamed)';
     
-    // 收集所有需要删除的索引
     const indicesToDelete = collectNodeAndChildren(data, nodeIndex);
     
-    // 从父节点的 _children 中移除引用
     if (node._parent) {
         const parentIndex = node._parent.__id__;
         const parent = data[parentIndex];
@@ -77,10 +63,8 @@ function removeNode(data, nodeIndex) {
         }
     }
     
-    // 重建引用
     rebuildReferences(data, indicesToDelete);
     
-    // 删除元素
     const sortedIndices = Array.from(indicesToDelete).sort((a, b) => b - a);
     for (const idx of sortedIndices) {
         data.splice(idx, 1);
@@ -95,7 +79,7 @@ function removeNode(data, nodeIndex) {
     };
 }
 
-function run(args) {
+export function run(args: string[]): void {
     if (args.length < 2) {
         outputError('用法: cocos2d-cli remove <场景文件路径> <索引> [--component|--node]');
         return;
@@ -118,25 +102,23 @@ function run(args) {
     }
     
     try {
-        let data = loadScene(scenePath);
+        const data = loadScene(scenePath);
         
         if (!data[index]) {
             outputError(`索引 ${index} 不存在`);
             return;
         }
         
-        // 确定删除类型
-        let deleteType;
+        let deleteType: string;
         if (forceComponent) {
             deleteType = 'component';
         } else if (forceNode) {
             deleteType = 'node';
         } else {
-            deleteType = detectItemType(data, index);
+            deleteType = detectItemType(data, index) || 'node';
         }
         
-        // 执行删除
-        let result;
+        let result: Record<string, unknown>;
         if (deleteType === 'component') {
             result = removeComponent(data, index);
         } else {
@@ -144,19 +126,18 @@ function run(args) {
         }
         
         if (result.error) {
-            outputError(result.error);
+            outputError(result.error as string);
             return;
         }
         
-        // 保存场景
         saveScene(scenePath, data);
         refreshEditor(scenePath);
         
         outputSuccess(result);
         
     } catch (err) {
-        outputError(err.message);
+        outputError((err as Error).message);
     }
 }
 
-module.exports = { run };
+export default { run };
