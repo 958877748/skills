@@ -18,21 +18,23 @@ jobs:
       issues: write      
       pull-requests: write 
     steps:
-       - name: Checkout repository
-         uses: actions/checkout@v6
-         with:
-           fetch-depth: 1
-           persist-credentials: true
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: true
 
-       - name: Configure Git  # ← 加上这个步骤
-         run: |
+      - name: Configure Git
+        run: |
           git config --global user.name "OpenCode Agent"
           git config --global user.email "opencode-agent[bot]@users.noreply.github.com"
+          # 关键：配置 Git 使用 GITHUB_TOKEN 认证
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
-       - name: Run OpenCode
-         uses: anomalyco/opencode/github@latest
-         env:
-           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         with:
-           model: opencode/minimax-m2.5-free
-           use_github_token: true
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode/minimax-m2.5-free
+          use_github_token: true
