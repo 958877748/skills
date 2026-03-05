@@ -2,9 +2,9 @@
   "name": "cocos2d-cli", 
   "version": "1.3.0",
   "description": "Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes",
-  "main": "bin/cocos-cli.js",
+  "main": "bin/cocos2d-cli.js",
   "bin": {
-    "cocos2d-cli": "./bin/cocos-cli.js"
+    "cocos2d-cli": "./bin/cocos2d-cli.js"
   },
   "files": [
     "bin",

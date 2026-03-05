@@ -224,7 +224,7 @@ function installPlugin(scenePath) {
         const assetsPath = path.dirname(scenePath);
         const projectPath = path.dirname(assetsPath);
         const packagesPath = path.join(projectPath, 'packages');
-        const pluginPath = path.join(packagesPath, 'cocos-cli-helper');
+        const pluginPath = path.join(packagesPath, 'cocos2d-cli-helper');
         
         if (fs.existsSync(pluginPath)) return true;
         
@@ -232,7 +232,7 @@ function installPlugin(scenePath) {
             fs.mkdirSync(packagesPath, { recursive: true });
         }
         
-        const cliPluginPath = path.join(__dirname, '..', '..', 'editor-plugin', 'cocos-cli-helper');
+        const cliPluginPath = path.join(__dirname, '..', '..', 'editor-plugin', 'cocos2d-cli-helper');
         
         if (!fs.existsSync(cliPluginPath)) return false;
         
