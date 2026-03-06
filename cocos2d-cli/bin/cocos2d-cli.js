@@ -38,7 +38,7 @@ Cocos Creator CLI - 场景/预制体操作工具集
   remove <文件> <节点路径>                   删除节点
   build <项目目录>                           构建组件映射
   create-prefab [JSON文件] <输出.prefab>     创建预制体（不传JSON则创建默认）
-  create-scene <JSON文件> <输出.fire>        从JSON文件创建场景
+  create-scene [JSON文件] <输出.fire>        创建场景（不传JSON则创建默认）
 
 节点路径格式:
   Canvas                    - 根节点下的 Canvas
