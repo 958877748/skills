@@ -1,28 +1,40 @@
 /**
  * 模板模块
- * 提供预制体和场景的基础模板
+ * 提供预制体和场景的创建方法
  */
 
-const { CCNode, CCScene, CCSceneAsset, CCPrefab, CCPrefabInfo, SceneData, PrefabData } = require('./cc');
+const { CCNode, CCScene, CCSceneAsset, CCPrefab, CCPrefabInfo } = require('./cc');
 
 /**
- * 创建预制体基础结构
+ * 创建预制体
  * @param {string} name - 预制体名称
- * @returns {Array} 预制体数据数组
+ * @returns {CCPrefab}
  */
-function createPrefab(name) {
-    const prefabData = new PrefabData(name);
-    return prefabData.toJSON();
+function createPrefab(name = 'Node') {
+    const prefab = new CCPrefab();
+    const node = new CCNode(name);
+    const info = new CCPrefabInfo();
+    
+    prefab._root = node;
+    node._prefab = info;
+    
+    return prefab;
 }
 
 /**
- * 创建场景基础结构（最小场景，只有 SceneAsset + Scene）
- * @param {string} sceneName - 场景名称
- * @returns {Array} 场景数据数组
+ * 创建场景
+ * @param {string} name - 场景名称
+ * @returns {CCSceneAsset}
  */
-function createScene(sceneName) {
-    const sceneData = new SceneData(sceneName);
-    return sceneData.toJSON();
+function createScene(name = 'NewScene') {
+    const asset = new CCSceneAsset();
+    const scene = new CCScene(name);
+    
+    asset._scene = scene;
+    scene._parent = null;
+    scene._children = [];
+    
+    return asset;
 }
 
 module.exports = {
@@ -33,7 +45,5 @@ module.exports = {
     CCScene,
     CCSceneAsset,
     CCPrefab,
-    CCPrefabInfo,
-    SceneData,
-    PrefabData
+    CCPrefabInfo
 };

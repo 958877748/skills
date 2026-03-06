@@ -1,9 +1,49 @@
 /**
- * remove-component 命令 - 删除节点组件
+ * remove-component 命令 - 移除组件
  */
 
 const path = require('path');
-const { SceneParser, PrefabParser } = require('../lib/cc');
+const fs = require('fs');
+const { CCSceneAsset, CCPrefab } = require('../lib/cc');
+const { buildTree } = require('../lib/node-utils');
+const { loadScriptMap, isPrefab } = require('../lib/fire-utils');
+
+/**
+ * 查找节点
+ */
+function findNode(root, path) {
+    if (!path) return root;
+    
+    const parts = path.split('/').filter(p => p);
+    if (parts.length === 0) return root;
+    
+    let current = root;
+    
+    if (parts[0] === root._name) {
+        parts.shift();
+    }
+    
+    for (const part of parts) {
+        if (!current._children || current._children.length === 0) return null;
+        const found = current._children.find(c => c._name === part);
+        if (!found) return null;
+        current = found;
+    }
+    
+    return current;
+}
+
+/**
+ * 查找组件
+ */
+function findComponent(node, compType) {
+    if (!node._components) return null;
+    
+    const type = compType.toLowerCase();
+    const typeName = 'cc.' + type.charAt(0).toUpperCase() + type.slice(1);
+    
+    return node._components.find(c => c.__type__ === typeName);
+}
 
 function run(args) {
     if (args.length < 3) {
@@ -13,47 +53,55 @@ function run(args) {
     
     const filePath = args[0];
     const nodePath = args[1];
-    const componentType = args[2];
+    const compType = args[2];
     
     const ext = path.extname(filePath).toLowerCase();
     
     try {
-        let parser;
+        let root;
+        let asset;
+        const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         
         if (ext === '.fire') {
-            parser = SceneParser.parse(filePath);
+            asset = CCSceneAsset.fromJSON(json);
+            root = asset._scene;
         } else if (ext === '.prefab') {
-            parser = PrefabParser.parse(filePath);
+            asset = CCPrefab.fromJSON(json);
+            root = asset._root;
         } else {
             console.log(JSON.stringify({ error: '不支持的文件类型，仅支持 .fire 和 .prefab' }));
             return;
         }
         
-        const node = parser.resolveNode(nodePath);
+        const node = findNode(root, nodePath);
         
         if (!node) {
             console.log(JSON.stringify({ error: `节点不存在: ${nodePath}` }));
             return;
         }
         
-        // 查找组件
-        const ccType = 'cc.' + componentType.charAt(0).toUpperCase() + componentType.slice(1);
-        const comp = node._components?.find(c => c.__type__ === ccType);
+        const comp = findComponent(node, compType);
         
         if (!comp) {
-            console.log(JSON.stringify({ error: `节点没有 ${ccType} 组件` }));
+            console.log(JSON.stringify({ error: `组件不存在: ${compType}` }));
             return;
         }
         
-        // 删除组件
-        parser.removeComponent(comp);
+        // 移除组件
+        const idx = node._components.indexOf(comp);
+        if (idx > -1) {
+            node._components.splice(idx, 1);
+        }
         
         // 保存
-        parser.save(filePath);
+        const data = asset.toJSON();
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
         
-        // 输出组件列表
-        const compNames = node._components.map(c => c.__type__.replace('cc.', ''));
-        console.log(`components[${compNames.join(', ')}]`);
+        // 输出节点树
+        const scriptMap = loadScriptMap(filePath);
+        const prefab = isPrefab(data);
+        const startIndex = prefab ? 0 : 1;
+        console.log(buildTree(data, scriptMap, startIndex).trim());
         
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));

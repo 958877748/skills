@@ -3,9 +3,11 @@
  */
 
 const path = require('path');
-const { SceneParser, PrefabParser, CCNode, CCCanvas, CCWidget, CCSprite, CCLabel, CCButton } = require('../lib/cc');
+const fs = require('fs');
+const { CCNode, CCSceneAsset, CCPrefab, CCCanvas, CCWidget, CCSprite, CCLabel, CCButton } = require('../lib/cc');
 const { buildTree } = require('../lib/node-utils');
 const { loadScriptMap, isPrefab } = require('../lib/fire-utils');
+const { generateCompressedUUID } = require('../lib/utils');
 
 /**
  * 解析命令行选项
@@ -19,7 +21,6 @@ function parseOptions(args, startIndex) {
             if (eqIndex > 0) {
                 const key = arg.substring(2, eqIndex);
                 let value = arg.substring(eqIndex + 1);
-                // 转换数值
                 if (!isNaN(value) && value !== '') {
                     value = parseFloat(value);
                 }
@@ -35,19 +36,39 @@ function parseOptions(args, startIndex) {
  */
 function createComponent(type) {
     switch (type.toLowerCase()) {
-        case 'canvas':
-            return new CCCanvas();
-        case 'widget':
-            return new CCWidget();
-        case 'sprite':
-            return new CCSprite();
-        case 'label':
-            return new CCLabel();
-        case 'button':
-            return new CCButton();
-        default:
-            return null;
+        case 'canvas': return new CCCanvas();
+        case 'widget': return new CCWidget();
+        case 'sprite': return new CCSprite();
+        case 'label': return new CCLabel();
+        case 'button': return new CCButton();
+        default: return null;
     }
+}
+
+/**
+ * 查找节点
+ */
+function findNode(root, path) {
+    if (!path) return root;
+    
+    const parts = path.split('/').filter(p => p);
+    if (parts.length === 0) return root;
+    
+    let current = root;
+    
+    // 如果路径以根节点名称开始，跳过
+    if (parts[0] === root._name) {
+        parts.shift();
+    }
+    
+    for (const part of parts) {
+        if (!current._children || current._children.length === 0) return null;
+        const found = current._children.find(c => c._name === part);
+        if (!found) return null;
+        current = found;
+    }
+    
+    return current;
 }
 
 function run(args) {
@@ -64,18 +85,22 @@ function run(args) {
     const ext = path.extname(filePath).toLowerCase();
     
     try {
-        let parser;
+        let root;
+        let asset;
+        const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         
         if (ext === '.fire') {
-            parser = SceneParser.parse(filePath);
+            asset = CCSceneAsset.fromJSON(json);
+            root = asset._scene;
         } else if (ext === '.prefab') {
-            parser = PrefabParser.parse(filePath);
+            asset = CCPrefab.fromJSON(json);
+            root = asset._root;
         } else {
             console.log(JSON.stringify({ error: '不支持的文件类型，仅支持 .fire 和 .prefab' }));
             return;
         }
         
-        const parent = parser.resolveNode(parentPath);
+        const parent = findNode(root, parentPath);
         
         if (!parent) {
             console.log(JSON.stringify({ error: `父节点不存在: ${parentPath}` }));
@@ -104,7 +129,8 @@ function run(args) {
         if (options.type) {
             const comp = createComponent(options.type);
             if (comp) {
-                parser.addComponent(node, comp);
+                comp.node = node;
+                node._components = [comp];
                 
                 // 组件特殊属性
                 if (options.type.toLowerCase() === 'label') {
@@ -120,14 +146,24 @@ function run(args) {
             }
         }
         
-        // 添加节点
-        parser.addNode(node, parent);
+        // 添加节点到父节点
+        parent._children = parent._children || [];
+        parent._children.push(node);
+        node._parent = parent;
+        
+        // 场景节点需要 _id，预制体需要 PrefabInfo
+        if (ext === '.fire') {
+            node._id = generateCompressedUUID();
+        } else if (ext === '.prefab') {
+            const { CCPrefabInfo } = require('../lib/cc');
+            node._prefab = new CCPrefabInfo();
+        }
         
         // 保存
-        parser.save(filePath);
+        const data = asset.toJSON();
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
         
         // 输出节点树
-        const data = parser.toJSON();
         const scriptMap = loadScriptMap(filePath);
         const prefab = isPrefab(data);
         const startIndex = prefab ? 0 : 1;

@@ -313,7 +313,7 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
     
     const isSceneRoot = node.__type__ === 'cc.Scene';
     const isPrefabRoot = node.__type__ === 'cc.Prefab';
-    const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
+    const nodeName = node._name || '(unnamed)';
     const active = node._active !== false ? '●' : '○';
     const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
     

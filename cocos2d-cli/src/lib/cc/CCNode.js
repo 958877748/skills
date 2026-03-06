@@ -149,26 +149,29 @@ class CCNode extends CCObject {
     }
 
     /**
-     * 设置父节点索引
+     * 设置父节点
+     * @param {CCNode|number} parent - 父节点对象或索引
      */
-    setParent(parentIndex) {
-        this._parent = { __id__: parentIndex };
+    setParent(parent) {
+        this._parent = typeof parent === 'number' ? { __id__: parent } : parent;
         return this;
     }
 
     /**
-     * 添加子节点索引
+     * 添加子节点
+     * @param {CCNode|number} child - 子节点对象或索引
      */
-    addChild(childIndex) {
-        this._children.push({ __id__: childIndex });
+    addChild(child) {
+        this._children.push(typeof child === 'number' ? { __id__: child } : child);
         return this;
     }
 
     /**
-     * 添加组件索引
+     * 添加组件
+     * @param {CCComponent|number} comp - 组件对象或索引
      */
-    addComponent(compIndex) {
-        this._components.push({ __id__: compIndex });
+    addComponent(comp) {
+        this._components.push(typeof comp === 'number' ? { __id__: comp } : comp);
         return this;
     }
 
@@ -203,17 +206,23 @@ class CCNode extends CCObject {
         return result;
     }
 
-    toJSON() {
+    toJSON(indexMap) {
+        // 处理引用
+        const parent = this._parent ? (indexMap ? { __id__: indexMap.get(this._parent) } : this._parent) : null;
+        const children = indexMap ? this._children.map(c => ({ __id__: indexMap.get(c) })) : this._children;
+        const components = indexMap ? this._components.map(c => ({ __id__: indexMap.get(c) })) : this._components;
+        const prefab = this._prefab ? (indexMap ? { __id__: indexMap.get(this._prefab) } : this._prefab) : null;
+
         // 显式控制属性顺序
         return {
             __type__: this.__type__,
             _name: this._name,
             _objFlags: this._objFlags,
-            _parent: this._parent,
-            _children: this._children,
+            _parent: parent,
+            _children: children,
             _active: this._active,
-            _components: this._components,
-            _prefab: this._prefab,
+            _components: components,
+            _prefab: prefab,
             _opacity: this._opacity,
             _color: this._color.toJSON(),
             _contentSize: this._contentSize.toJSON(),

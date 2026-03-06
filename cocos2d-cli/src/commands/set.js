@@ -1,250 +1,144 @@
 /**
- * set 命令 - 修改节点属性
+ * set 命令 - 设置节点或组件属性
  */
 
 const path = require('path');
-const { SceneParser, PrefabParser } = require('../lib/cc');
+const fs = require('fs');
+const { CCSceneAsset, CCPrefab } = require('../lib/cc');
+const { buildTree } = require('../lib/node-utils');
+const { loadScriptMap, isPrefab } = require('../lib/fire-utils');
 
 /**
- * 解析属性键
- * 支持格式：x, name, label.string, sprite.sizeMode
+ * 查找节点
  */
-function parsePropertyKey(key) {
-    const parts = key.split('.');
-    if (parts.length === 1) {
-        return { type: 'node', key: parts[0] };
+function findNode(root, path) {
+    if (!path) return root;
+    
+    const parts = path.split('/').filter(p => p);
+    if (parts.length === 0) return root;
+    
+    let current = root;
+    
+    if (parts[0] === root._name) {
+        parts.shift();
     }
-    return { type: 'component', compName: parts[0], prop: parts[1] };
+    
+    for (const part of parts) {
+        if (!current._children || current._children.length === 0) return null;
+        const found = current._children.find(c => c._name === part);
+        if (!found) return null;
+        current = found;
+    }
+    
+    return current;
 }
 
 /**
- * 设置节点属性
+ * 查找组件
  */
-function setNodeProp(node, key, value) {
-    switch (key) {
-        case 'name':
-            node._name = value;
-            break;
-        case 'active':
-            node._active = value === 'true' || value === true;
-            break;
-        case 'x':
-            node._trs.array[0] = parseFloat(value);
-            break;
-        case 'y':
-            node._trs.array[1] = parseFloat(value);
-            break;
-        case 'width':
-            node._contentSize.width = parseFloat(value);
-            break;
-        case 'height':
-            node._contentSize.height = parseFloat(value);
-            break;
-        case 'anchorX':
-            node._anchorPoint.x = parseFloat(value);
-            break;
-        case 'anchorY':
-            node._anchorPoint.y = parseFloat(value);
-            break;
-        case 'opacity':
-            node._opacity = Math.max(0, Math.min(255, parseInt(value)));
-            break;
-        case 'scaleX':
-            node._trs.array[7] = parseFloat(value);
-            break;
-        case 'scaleY':
-            node._trs.array[8] = parseFloat(value);
-            break;
+function findComponent(node, compType) {
+    if (!node._components) return null;
+    
+    const type = compType.toLowerCase();
+    const typeName = 'cc.' + type.charAt(0).toUpperCase() + type.slice(1);
+    
+    return node._components.find(c => c.__type__ === typeName);
+}
+
+/**
+ * 设置节点属性值
+ */
+function setNodeProp(node, prop, value) {
+    switch (prop.toLowerCase()) {
+        case 'name': node._name = value; return true;
+        case 'active': node._active = value === 'true' || value === true; return true;
+        case 'x': node._trs.array[0] = parseFloat(value); return true;
+        case 'y': node._trs.array[1] = parseFloat(value); return true;
+        case 'width': node._contentSize.width = parseFloat(value); return true;
+        case 'height': node._contentSize.height = parseFloat(value); return true;
+        case 'scalex': node._trs.array[7] = parseFloat(value); return true;
+        case 'scaley': node._trs.array[8] = parseFloat(value); return true;
         case 'rotation':
             node._trs.array[5] = parseFloat(value) * Math.PI / 180;
             node._eulerAngles.z = parseFloat(value);
-            break;
-        case 'group':
-            node._groupIndex = parseInt(value);
-            node.groupIndex = node._groupIndex;
-            break;
-        default:
-            return false;
-    }
-    return true;
-}
-
-/**
- * 设置组件属性
- */
-function setComponentProp(comp, prop, value) {
-    const type = comp.__type__;
-    
-    if (prop === 'enabled') {
-        comp._enabled = value === 'true' || value === true;
-        return true;
-    }
-    
-    if (type === 'cc.Label') {
-        switch (prop) {
-            case 'string':
-                comp._string = value;
-                comp['_N$string'] = value;
-                return true;
-            case 'fontSize':
-                comp._fontSize = parseInt(value);
-                return true;
-            case 'lineHeight':
-                comp._lineHeight = parseInt(value);
-                return true;
-        }
-    }
-    
-    if (type === 'cc.Sprite') {
-        switch (prop) {
-            case 'sizeMode':
-                comp._sizeMode = parseInt(value);
-                return true;
-            case 'type':
-                comp._type = parseInt(value);
-                return true;
-        }
-    }
-    
-    if (type === 'cc.Button') {
-        switch (prop) {
-            case 'interactable':
-                comp['_N$interactable'] = value === 'true' || value === true;
-                return true;
-            case 'transition':
-                comp.transition = parseInt(value);
-                comp['_N$transition'] = parseInt(value);
-                return true;
-            case 'zoomScale':
-                comp.zoomScale = parseFloat(value);
-                return true;
-        }
-    }
-    
-    if (type === 'cc.Widget') {
-        switch (prop) {
-            case 'top':
-                comp._top = parseFloat(value);
-                return true;
-            case 'bottom':
-                comp._bottom = parseFloat(value);
-                return true;
-            case 'left':
-                comp._left = parseFloat(value);
-                return true;
-            case 'right':
-                comp._right = parseFloat(value);
-                return true;
-        }
-    }
-    
-    if (type === 'cc.Canvas') {
-        if (prop === 'designWidth') {
-            comp._designResolution.width = parseInt(value);
             return true;
-        }
-        if (prop === 'designHeight') {
-            comp._designResolution.height = parseInt(value);
-            return true;
-        }
+        case 'anchorx': node._anchorPoint.x = parseFloat(value); return true;
+        case 'anchory': node._anchorPoint.y = parseFloat(value); return true;
+        case 'opacity': node._opacity = parseInt(value); return true;
+        default: return false;
     }
-    
-    return false;
-}
-
-/**
- * 解析命令行选项
- */
-function parseOptions(args, startIndex) {
-    const options = {};
-    for (let i = startIndex; i < args.length; i++) {
-        const arg = args[i];
-        if (arg.startsWith('--')) {
-            const eqIndex = arg.indexOf('=');
-            if (eqIndex > 0) {
-                const key = arg.substring(2, eqIndex);
-                const value = arg.substring(eqIndex + 1);
-                options[key] = value;
-            }
-        }
-    }
-    return options;
 }
 
 function run(args) {
-    if (args.length < 2) {
-        console.log(JSON.stringify({ error: '用法: cocos2d-cli set <场景.fire|预制体.prefab> <节点路径> --属性=值' }));
+    if (args.length < 4) {
+        console.log(JSON.stringify({ error: '用法: cocos2d-cli set <场景.fire|预制体.prefab> <节点路径> <属性名|组件.属性> <值>' }));
         return;
     }
     
     const filePath = args[0];
     const nodePath = args[1];
-    const options = parseOptions(args, 2);
-    
-    if (Object.keys(options).length === 0) {
-        console.log(JSON.stringify({ error: '请指定要设置的属性，如 --x=100 --name=NewName' }));
-        return;
-    }
+    const propPath = args[2];
+    const value = args[3];
     
     const ext = path.extname(filePath).toLowerCase();
     
     try {
-        let parser;
+        let root;
+        let asset;
+        const json = JSON.parse(fs.readFileSync(filePath, 'utf8'));
         
         if (ext === '.fire') {
-            parser = SceneParser.parse(filePath);
+            asset = CCSceneAsset.fromJSON(json);
+            root = asset._scene;
         } else if (ext === '.prefab') {
-            parser = PrefabParser.parse(filePath);
+            asset = CCPrefab.fromJSON(json);
+            root = asset._root;
         } else {
             console.log(JSON.stringify({ error: '不支持的文件类型，仅支持 .fire 和 .prefab' }));
             return;
         }
         
-        const node = parser.resolveNode(nodePath);
+        const node = findNode(root, nodePath);
         
         if (!node) {
             console.log(JSON.stringify({ error: `节点不存在: ${nodePath}` }));
             return;
         }
         
-        const changes = [];
+        // 检查是否是组件属性（格式: 组件.属性）
+        const parts = propPath.split('.');
         
-        for (const [key, value] of Object.entries(options)) {
-            const parsed = parsePropertyKey(key);
+        if (parts.length === 2) {
+            // 组件属性
+            const comp = findComponent(node, parts[0]);
+            if (!comp) {
+                console.log(JSON.stringify({ error: `组件不存在: ${parts[0]}` }));
+                return;
+            }
             
-            if (parsed.type === 'node') {
-                if (setNodeProp(node, parsed.key, value)) {
-                    changes.push({ property: key, value });
-                } else {
-                    console.log(JSON.stringify({ error: `未知节点属性: ${key}` }));
-                    return;
-                }
-            } else {
-                // 组件属性
-                const compName = parsed.compName.toLowerCase();
-                const comp = node._components.find(c => 
-                    c.__type__.toLowerCase().includes(compName)
-                );
-                
-                if (!comp) {
-                    console.log(JSON.stringify({ error: `节点 ${nodePath} 没有组件: ${parsed.compName}` }));
-                    return;
-                }
-                
-                if (setComponentProp(comp, parsed.prop, value)) {
-                    changes.push({ property: key, value });
-                } else {
-                    console.log(JSON.stringify({ error: `未知组件属性: ${key}` }));
-                    return;
-                }
+            if (comp[parts[1]] === undefined) {
+                console.log(JSON.stringify({ error: `属性不存在: ${parts[1]}` }));
+                return;
+            }
+            
+            comp[parts[1]] = value;
+        } else {
+            // 节点属性
+            if (!setNodeProp(node, propPath, value)) {
+                console.log(JSON.stringify({ error: `属性不存在: ${propPath}` }));
+                return;
             }
         }
         
         // 保存
-        parser.save(filePath);
+        const data = asset.toJSON();
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
         
-        // 输出节点完整属性
-        console.log(JSON.stringify(node.toPanelJSON(), null, 2));
+        // 输出节点树
+        const scriptMap = loadScriptMap(filePath);
+        const prefab = isPrefab(data);
+        const startIndex = prefab ? 0 : 1;
+        console.log(buildTree(data, scriptMap, startIndex).trim());
         
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));
