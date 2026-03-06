@@ -3,7 +3,13 @@ const CCSceneAsset = require('./CCSceneAsset');
 const CCScene = require('./CCScene');
 const CCNode = require('./CCNode');
 const CCComponent = require('./CCComponent');
-const { generateUUID } = require('../utils');
+const CCCanvas = require('./CCCanvas');
+const CCWidget = require('./CCWidget');
+const CCCamera = require('./CCCamera');
+const CCSprite = require('./CCSprite');
+const CCLabel = require('./CCLabel');
+const CCButton = require('./CCButton');
+const { generateUUID, generateCompressedUUID } = require('../utils');
 
 /**
  * 场景解析器
@@ -70,7 +76,9 @@ class SceneParser {
             case 'cc.SceneAsset':
                 return new CCSceneAsset();
             case 'cc.Scene':
-                return new CCScene(item._name || 'Scene');
+                const scene = new CCScene(item._name || 'Scene');
+                scene._id = item._id || '';
+                return scene;
             case 'cc.Node':
                 const node = new CCNode(item._name || 'Node');
                 // 预制体内节点 _id 为空
@@ -93,8 +101,33 @@ class SceneParser {
      * 创建组件
      */
     createComponent(type, item) {
-        const comp = new CCComponent();
-        comp.__type__ = type;
+        let comp;
+        
+        // 创建具体类型的组件
+        switch (type) {
+            case 'cc.Canvas':
+                comp = new CCCanvas();
+                break;
+            case 'cc.Widget':
+                comp = new CCWidget();
+                break;
+            case 'cc.Camera':
+                comp = new CCCamera();
+                break;
+            case 'cc.Sprite':
+                comp = new CCSprite();
+                break;
+            case 'cc.Label':
+                comp = new CCLabel();
+                break;
+            case 'cc.Button':
+                comp = new CCButton();
+                break;
+            default:
+                comp = new CCComponent();
+                comp.__type__ = type;
+        }
+        
         comp._id = item._id || '';
         
         // 复制所有属性
@@ -302,7 +335,7 @@ class SceneParser {
         if (!parent) parent = this.scene;
         parent._children.push(node);
         node._parent = parent;
-        node._id = generateUUID(); // 场景节点生成 _id
+        node._id = generateCompressedUUID(); // 使用压缩格式 UUID
         this.allNodes.push(node);
         return node;
     }
@@ -369,7 +402,7 @@ class SceneParser {
         result.push(this.scene);
         indexMap.set(this.scene, 1);
 
-        // 递归添加节点和组件
+        // 递归添加节点（先节点，再子节点，最后组件）
         const addNode = (node) => {
             if (!node || indexMap.has(node)) return;
             
@@ -377,7 +410,12 @@ class SceneParser {
             indexMap.set(node, nodeIndex);
             result.push(node);
 
-            // 添加组件
+            // 先递归子节点
+            if (node._children) {
+                node._children.forEach(child => addNode(child));
+            }
+
+            // 最后添加组件
             if (node._components) {
                 node._components.forEach(comp => {
                     if (!indexMap.has(comp)) {
@@ -385,11 +423,6 @@ class SceneParser {
                         result.push(comp);
                     }
                 });
-            }
-
-            // 递归子节点
-            if (node._children) {
-                node._children.forEach(child => addNode(child));
             }
         };
 
@@ -471,16 +504,18 @@ class SceneParser {
             _name: obj._name || '',
             _objFlags: obj._objFlags,
             node: { __id__: indexMap.get(obj.node) },
-            _enabled: obj._enabled,
-            _id: obj._id
+            _enabled: obj._enabled
         };
         
-        // 复制其他属性
+        // 复制其他属性（不含 _id）
         for (const key of Object.keys(obj)) {
             if (!['__type__', '_name', '_objFlags', 'node', '_enabled', '_id'].includes(key)) {
                 json[key] = obj[key];
             }
         }
+        
+        // _id 放最后
+        json._id = obj._id;
         
         return json;
     }

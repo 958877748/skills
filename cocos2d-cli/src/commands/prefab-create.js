@@ -6,9 +6,82 @@ const fs = require('fs');
 const path = require('path');
 const { outputError } = require('../lib/utils');
 const { buildTree } = require('../lib/node-utils');
-const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
 const { createPrefab, PrefabData, CCNode, CCPrefabInfo } = require('../lib/templates');
 const { generateFileId, loadScriptMap } = require('../lib/fire-utils');
+const { CCCanvas, CCWidget, CCSprite, CCLabel, CCButton, CCCamera } = require('../lib/cc');
+
+/**
+ * 创建组件实例
+ */
+function createComponentInstance(type) {
+    switch (type.toLowerCase()) {
+        case 'canvas': return new CCCanvas();
+        case 'widget': return new CCWidget();
+        case 'sprite': return new CCSprite();
+        case 'label': return new CCLabel();
+        case 'button': return new CCButton();
+        case 'camera': return new CCCamera();
+        default: return null;
+    }
+}
+
+/**
+ * 应用组件属性
+ */
+function applyComponentProps(comp, props, node) {
+    if (!props) return;
+    
+    for (const [key, value] of Object.entries(props)) {
+        switch (key) {
+            case 'string':
+                if (comp._string !== undefined) {
+                    comp._string = value;
+                    if (comp._N$string !== undefined) comp._N$string = value;
+                }
+                break;
+            case 'fontSize':
+                if (comp._fontSize !== undefined) comp._fontSize = value;
+                break;
+            case 'lineHeight':
+                if (comp._lineHeight !== undefined) comp._lineHeight = value;
+                break;
+            case 'sizeMode':
+                if (comp._sizeMode !== undefined) comp._sizeMode = value;
+                break;
+            case 'color':
+                if (node) {
+                    const { parseColor } = require('../lib/utils');
+                    const parsed = parseColor(value);
+                    if (parsed && node._color) {
+                        node._color.r = parsed.r;
+                        node._color.g = parsed.g;
+                        node._color.b = parsed.b;
+                        node._color.a = parsed.a;
+                    }
+                }
+                break;
+            default:
+                if (comp[key] !== undefined) {
+                    comp[key] = value;
+                }
+        }
+    }
+}
+
+/**
+ * 解析组件定义
+ */
+function parseComponent(compDef) {
+    if (typeof compDef === 'string') {
+        return { type: compDef, props: {} };
+    }
+    if (typeof compDef === 'object' && compDef.type) {
+        const props = { ...compDef };
+        delete props.type;
+        return { type: compDef.type, props };
+    }
+    return null;
+}
 
 /**
  * 从 JSON 定义创建预制体数据

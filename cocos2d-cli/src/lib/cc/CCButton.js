@@ -71,6 +71,20 @@ class CCButton extends CCComponent {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式
+     */
+    toPanelJSON() {
+        const TRANSITION = ['NONE', 'COLOR', 'SPRITE', 'SCALE'];
+        return {
+            ...super.toPanelJSON(),
+            interactable: this._N$interactable,
+            transition: TRANSITION[this._N$transition] || this._N$transition,
+            zoomScale: this.zoomScale,
+            duration: this.duration
+        };
+    }
+
     toJSON() {
         return {
             __type__: this.__type__,

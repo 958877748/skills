@@ -243,11 +243,8 @@ function run(args) {
         // 保存
         parser.save(filePath);
         
-        console.log(JSON.stringify({
-            success: true,
-            node: node._name,
-            changes
-        }, null, 2));
+        // 输出节点完整属性
+        console.log(JSON.stringify(node.toPanelJSON(), null, 2));
         
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));

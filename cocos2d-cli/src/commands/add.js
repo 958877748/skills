@@ -4,6 +4,8 @@
 
 const path = require('path');
 const { SceneParser, PrefabParser, CCNode, CCCanvas, CCWidget, CCSprite, CCLabel, CCButton } = require('../lib/cc');
+const { buildTree } = require('../lib/node-utils');
+const { loadScriptMap, isPrefab } = require('../lib/fire-utils');
 
 /**
  * 解析命令行选项
@@ -124,11 +126,12 @@ function run(args) {
         // 保存
         parser.save(filePath);
         
-        console.log(JSON.stringify({
-            success: true,
-            node: nodeName,
-            parent: parent._name
-        }, null, 2));
+        // 输出节点树
+        const data = parser.toJSON();
+        const scriptMap = loadScriptMap(filePath);
+        const prefab = isPrefab(data);
+        const startIndex = prefab ? 0 : 1;
+        console.log(buildTree(data, scriptMap, startIndex).trim());
         
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));

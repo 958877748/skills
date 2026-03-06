@@ -50,6 +50,20 @@ class CCCamera extends CCComponent {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式
+     */
+    toPanelJSON() {
+        return {
+            ...super.toPanelJSON(),
+            depth: this._depth,
+            zoomRatio: this._zoomRatio,
+            ortho: this._ortho,
+            orthoSize: this._orthoSize,
+            backgroundColor: this._backgroundColor ? `#${this._backgroundColor.r.toString(16).padStart(2,'0')}${this._backgroundColor.g.toString(16).padStart(2,'0')}${this._backgroundColor.b.toString(16).padStart(2,'0')}` : '#000000'
+        };
+    }
+
     toJSON() {
         return {
             __type__: this.__type__,

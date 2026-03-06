@@ -1,5 +1,5 @@
 const CCObject = require('./CCObject');
-const { generateUUID } = require('../utils');
+const { generateId } = require('../utils');
 
 /**
  * Cocos Creator 组件基类
@@ -15,8 +15,8 @@ class CCComponent extends CCObject {
         // 启用状态
         this._enabled = true;
         
-        // 唯一标识
-        this._id = generateUUID();
+        // 唯一标识（22位压缩格式）
+        this._id = generateId();
     }
 
     /**
@@ -33,6 +33,16 @@ class CCComponent extends CCObject {
     setEnabled(enabled) {
         this._enabled = enabled;
         return this;
+    }
+
+    /**
+     * 转换为属性面板显示格式（子类重写）
+     */
+    toPanelJSON() {
+        return {
+            type: this.__type__,
+            enabled: this._enabled
+        };
     }
 
     toJSON() {

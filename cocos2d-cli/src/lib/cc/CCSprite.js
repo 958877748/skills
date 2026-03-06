@@ -41,6 +41,20 @@ class CCSprite extends CCComponent {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式
+     */
+    toPanelJSON() {
+        const SIZE_MODE = ['CUSTOM', 'RAW', 'TRIMMED'];
+        const SPRITE_TYPE = ['SIMPLE', 'SLICED', 'TILED', 'FILLED', 'MESH'];
+        return {
+            ...super.toPanelJSON(),
+            sizeMode: SIZE_MODE[this._sizeMode] || this._sizeMode,
+            type: SPRITE_TYPE[this._type] || this._type,
+            trim: this._isTrimmedMode
+        };
+    }
+
     toJSON() {
         return {
             __type__: this.__type__,

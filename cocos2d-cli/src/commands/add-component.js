@@ -80,11 +80,9 @@ function run(args) {
         // 保存
         parser.save(filePath);
         
-        console.log(JSON.stringify({
-            success: true,
-            node: node._name,
-            component: ccType
-        }, null, 2));
+        // 输出组件列表
+        const compNames = node._components.map(c => c.__type__.replace('cc.', ''));
+        console.log(`components[${compNames.join(', ')}]`);
         
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));

@@ -31,6 +31,21 @@ class CCCanvas extends CCComponent {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式
+     */
+    toPanelJSON() {
+        return {
+            ...super.toPanelJSON(),
+            designResolution: {
+                width: this._designResolution?.width ?? 960,
+                height: this._designResolution?.height ?? 640
+            },
+            fitWidth: this._fitWidth,
+            fitHeight: this._fitHeight
+        };
+    }
+
     toJSON() {
         return {
             __type__: this.__type__,

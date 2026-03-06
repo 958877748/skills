@@ -1,20 +1,19 @@
 /**
- * remove 命令 - 删除节点
+ * remove-component 命令 - 删除节点组件
  */
 
 const path = require('path');
 const { SceneParser, PrefabParser } = require('../lib/cc');
-const { buildTree } = require('../lib/node-utils');
-const { loadScriptMap, isPrefab } = require('../lib/fire-utils');
 
 function run(args) {
-    if (args.length < 2) {
-        console.log(JSON.stringify({ error: '用法: cocos2d-cli remove <场景.fire|预制体.prefab> <节点路径>' }));
+    if (args.length < 3) {
+        console.log(JSON.stringify({ error: '用法: cocos2d-cli remove-component <场景.fire|预制体.prefab> <节点路径> <组件类型>' }));
         return;
     }
     
     const filePath = args[0];
     const nodePath = args[1];
+    const componentType = args[2];
     
     const ext = path.extname(filePath).toLowerCase();
     
@@ -37,25 +36,24 @@ function run(args) {
             return;
         }
         
-        const nodeName = node._name;
+        // 查找组件
+        const ccType = 'cc.' + componentType.charAt(0).toUpperCase() + componentType.slice(1);
+        const comp = node._components?.find(c => c.__type__ === ccType);
         
-        // 删除节点
-        const success = parser.removeNode(node);
-        
-        if (!success) {
-            console.log(JSON.stringify({ error: '无法删除节点（可能是根节点）' }));
+        if (!comp) {
+            console.log(JSON.stringify({ error: `节点没有 ${ccType} 组件` }));
             return;
         }
+        
+        // 删除组件
+        parser.removeComponent(comp);
         
         // 保存
         parser.save(filePath);
         
-        // 输出节点树
-        const data = parser.toJSON();
-        const scriptMap = loadScriptMap(filePath);
-        const prefab = isPrefab(data);
-        const startIndex = prefab ? 0 : 1;
-        console.log(buildTree(data, scriptMap, startIndex).trim());
+        // 输出组件列表
+        const compNames = node._components.map(c => c.__type__.replace('cc.', ''));
+        console.log(`components[${compNames.join(', ')}]`);
         
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));

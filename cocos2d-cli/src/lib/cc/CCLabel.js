@@ -55,6 +55,26 @@ class CCLabel extends CCComponent {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式
+     */
+    toPanelJSON() {
+        const H_ALIGN = ['LEFT', 'CENTER', 'RIGHT'];
+        const V_ALIGN = ['TOP', 'CENTER', 'BOTTOM'];
+        const OVERFLOW = ['NONE', 'CLAMP', 'SHRINK', 'RESIZE_HEIGHT'];
+        return {
+            ...super.toPanelJSON(),
+            string: this._string,
+            fontSize: this._fontSize,
+            lineHeight: this._lineHeight,
+            fontFamily: this._N$fontFamily,
+            horizontalAlign: H_ALIGN[this._N$horizontalAlign] || this._N$horizontalAlign,
+            verticalAlign: V_ALIGN[this._N$verticalAlign] || this._N$verticalAlign,
+            overflow: OVERFLOW[this._N$overflow] || this._N$overflow,
+            wrap: this._enableWrapText
+        };
+    }
+
     toJSON() {
         return {
             __type__: this.__type__,

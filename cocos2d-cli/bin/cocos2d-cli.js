@@ -13,6 +13,7 @@ const commands = {
     set: '../src/commands/set',
     add: '../src/commands/add',
     'add-component': '../src/commands/add-component',
+    'remove-component': '../src/commands/remove-component',
     'remove': '../src/commands/remove',
     build: '../src/commands/build',
     'create-prefab': '../src/commands/prefab-create',
@@ -28,15 +29,21 @@ Cocos Creator CLI - 场景/预制体操作工具集
   cocos2d-cli <command> [options]
 
 命令:
-  tree <场景.fire | 预制体.prefab>           查看节点树（获取索引）
-  get <场景.fire | 预制体.prefab> <索引>     获取节点属性
-  set <场景.fire | 预制体.prefab> <索引> [选项]  修改节点属性
-  add <场景.fire | 预制体.prefab> <父索引> <名称>  添加节点
-  add-component <文件> <节点索引> <类型>     给节点添加组件
-  remove <文件> <索引> [--component|--node]  删除节点或组件（自动检测类型）
+  tree <场景.fire | 预制体.prefab>           查看节点树
+  get <场景.fire | 预制体.prefab> <节点路径>  获取节点属性
+  set <场景.fire | 预制体.prefab> <节点路径> [选项]  修改节点属性
+  add <场景.fire | 预制体.prefab> <父节点路径> <名称>  添加节点
+  add-component <文件> <节点路径> <类型>     给节点添加组件
+  remove-component <文件> <节点路径> <类型>  删除节点组件
+  remove <文件> <节点路径>                   删除节点
   build <项目目录>                           构建组件映射
   create-prefab [JSON文件] <输出.prefab>     创建预制体（不传JSON则创建默认）
   create-scene <JSON文件> <输出.fire>        从JSON文件创建场景
+
+节点路径格式:
+  Canvas                    - 根节点下的 Canvas
+  Canvas/MidNode            - Canvas 下的 MidNode
+  Canvas/GameScene/NodeA    - 多层嵌套路径
 
 选项:
   --name=<名称>          修改节点名称
@@ -56,7 +63,6 @@ Cocos Creator CLI - 场景/预制体操作工具集
   --fontSize=<数值>      修改 Label 字体大小
   --lineHeight=<数值>    修改 Label 行高
   --type=sprite/label/button  添加节点时指定组件类型
-  --at=<索引>            添加节点时插入到子节点的指定位置（0=第一个）
 
 JSON 格式 (create-prefab / create-scene):
   {
@@ -98,9 +104,12 @@ JSON 格式 (create-prefab / create-scene):
 
 示例:
   cocos2d-cli tree assets/main.fire
-  cocos2d-cli get assets/main.fire 5
-  cocos2d-cli set assets/main.fire 8 --x=100 --y=200 --color=#ff0000
-  cocos2d-cli add assets/main.fire 5 NewSprite --type=sprite --x=100
+  cocos2d-cli get assets/main.fire Canvas/MidNode
+  cocos2d-cli set assets/main.fire Canvas/MidNode --x=100 --y=200 --color=#ff0000
+  cocos2d-cli add assets/main.fire Canvas NewSprite --type=sprite --x=100
+  cocos2d-cli add-component assets/main.fire Canvas/MidNode label
+  cocos2d-cli remove-component assets/main.fire Canvas/MidNode label
+  cocos2d-cli remove assets/main.fire Canvas/MidNode
 
   # 从 JSON 文件创建场景
   cocos2d-cli create-scene scene.json assets/scene.fire

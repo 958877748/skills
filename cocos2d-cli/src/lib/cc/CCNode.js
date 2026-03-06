@@ -172,6 +172,37 @@ class CCNode extends CCObject {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式（人类可读）
+     */
+    toPanelJSON() {
+        const trs = this._trs?.array || [0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
+        const result = {
+            name: this._name,
+            active: this._active,
+            position: { x: trs[0], y: trs[1] },
+            rotation: this._eulerAngles?.z ?? 0,
+            scale: { x: trs[7], y: trs[8] },
+            anchor: { x: this._anchorPoint?.x ?? 0.5, y: this._anchorPoint?.y ?? 0.5 },
+            size: { w: this._contentSize?.width ?? 0, h: this._contentSize?.height ?? 0 },
+            color: this._color ? `#${this._color.r.toString(16).padStart(2,'0')}${this._color.g.toString(16).padStart(2,'0')}${this._color.b.toString(16).padStart(2,'0')}` : '#ffffff',
+            opacity: this._opacity ?? 255,
+            skew: { x: this._skewX ?? 0, y: this._skewY ?? 0 },
+            group: this._groupIndex ?? 0
+        };
+        
+        // 组件列表
+        if (this._components && this._components.length > 0) {
+            result.components = {};
+            this._components.forEach(c => {
+                const typeName = c.__type__.replace('cc.', '');
+                result.components[typeName] = c.toPanelJSON ? c.toPanelJSON() : {};
+            });
+        }
+        
+        return result;
+    }
+
     toJSON() {
         // 显式控制属性顺序
         return {

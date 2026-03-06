@@ -47,6 +47,25 @@ class CCWidget extends CCComponent {
         return this;
     }
 
+    /**
+     * 转换为属性面板显示格式
+     */
+    toPanelJSON() {
+        return {
+            ...super.toPanelJSON(),
+            top: this._top,
+            bottom: this._bottom,
+            left: this._left,
+            right: this._right,
+            horizontalCenter: this._horizontalCenter,
+            verticalCenter: this._verticalCenter,
+            isAbsLeft: this._isAbsLeft,
+            isAbsRight: this._isAbsRight,
+            isAbsTop: this._isAbsTop,
+            isAbsBottom: this._isAbsBottom
+        };
+    }
+
     toJSON() {
         return {
             __type__: this.__type__,

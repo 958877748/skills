@@ -147,9 +147,20 @@ function setNodeProperties(node, options) {
  * @returns {object} 节点状态
  */
 function getNodeState(data, node, nodeIndex) {
-    const { extractComponentProps } = require('./components');
     const trs = node._trs?.array || [0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
-    const components = (node._components || []).map(ref => extractComponentProps(data[ref.__id__]));
+    
+    // 组件使用 toPanelJSON
+    const components = {};
+    if (node._components && node._components.length > 0) {
+        node._components.forEach(ref => {
+            const comp = data[ref.__id__];
+            if (comp && comp.toPanelJSON) {
+                const typeName = comp.__type__.replace('cc.', '');
+                components[typeName] = comp.toPanelJSON();
+            }
+        });
+    }
+    
     const children = (node._children || []).map(ref => data[ref.__id__]?._name || '(unknown)');
 
     const result = {
@@ -166,7 +177,7 @@ function getNodeState(data, node, nodeIndex) {
     };
 
     if (children.length > 0) result.children = children;
-    if (components.length > 0) result.components = components;
+    if (Object.keys(components).length > 0) result.components = components;
 
     return result;
 }
