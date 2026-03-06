@@ -5,9 +5,10 @@
 const fs = require('fs');
 const path = require('path');
 const { outputError, outputSuccess } = require('../lib/utils');
-const { createNodeData } = require('../lib/node-utils');
+const { createNodeData, buildTree } = require('../lib/node-utils');
 const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
 const { createScene } = require('../lib/templates');
+const { loadScriptMap } = require('../lib/fire-utils');
 
 /**
  * 从 JSON 定义创建场景数据
@@ -65,17 +66,50 @@ function addUserNode(data, def, parentIndex) {
 }
 
 function run(args) {
-    if (args.length < 2) {
+    if (args.length < 1) {
         outputError({ 
-            message: '用法: cocos2d-cli create-scene <JSON文件路径> <输出路径.fire>',
-            hint: '从 JSON 文件读取结构生成场景'
+            message: '用法: cocos2d-cli create-scene [JSON文件路径] <输出路径.fire>',
+            hint: '不传 JSON 则创建默认场景'
         });
         return;
     }
 
-    const jsonPath = args[0];
-    const outputPath = args[1];
+    let jsonPath = null;
+    let outputPath;
+
+    if (args.length === 1) {
+        outputPath = args[0];
+    } else {
+        jsonPath = args[0];
+        outputPath = args[1];
+    }
+
     const sceneName = path.basename(outputPath, '.fire');
+
+    // 没有传 JSON，创建默认场景
+    if (!jsonPath) {
+        try {
+            if (fs.existsSync(outputPath)) {
+                outputError(`文件已存在: ${outputPath}`);
+                return;
+            }
+            
+            const dir = path.dirname(outputPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            
+            const data = createScene(sceneName);
+            fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
+            
+            const scriptMap = loadScriptMap(outputPath);
+            console.log(buildTree(data, scriptMap, 1).trim());
+            return;
+        } catch (err) {
+            outputError(err.message);
+            return;
+        }
+    }
 
     if (!fs.existsSync(jsonPath)) {
         outputError(`JSON 文件不存在: ${jsonPath}`);
@@ -95,20 +129,9 @@ function run(args) {
         }
 
         fs.writeFileSync(outputPath, JSON.stringify(sceneData, null, 2), 'utf8');
-
-        let nodeCount = 0, compCount = 0;
-        for (const item of sceneData) {
-            if (item.__type__ === 'cc.Node') nodeCount++;
-            else if (item.__type__?.startsWith('cc.') && !['cc.Scene', 'cc.SceneAsset'].includes(item.__type__)) {
-                compCount++;
-            }
-        }
-
-        outputSuccess({
-            path: outputPath,
-            nodes: nodeCount,
-            components: compCount
-        });
+        
+        const scriptMap = loadScriptMap(outputPath);
+        console.log(buildTree(sceneData, scriptMap, 1).trim());
 
     } catch (err) {
         outputError(err.message);

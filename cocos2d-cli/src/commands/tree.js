@@ -18,14 +18,9 @@ function run(args) {
         const scriptMap = loadScriptMap(filePath);
         const prefab = isPrefab(data);
         
-        // 输出文件类型
-        if (prefab) {
-            console.log(`[Prefab] ${data[1]._name || 'Root'}\n`);
-        } else {
-            console.log(`[Scene]\n`);
-        }
-        
-        console.log(buildTree(data, scriptMap, 1));
+        // Prefab 从索引 0 开始，Scene 从索引 1 开始
+        const startIndex = prefab ? 0 : 1;
+        console.log(buildTree(data, scriptMap, startIndex).trim());
     } catch (err) {
         console.log(JSON.stringify({ error: err.message }));
     }

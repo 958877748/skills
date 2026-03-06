@@ -276,6 +276,7 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
     if (!node) return '';
     
     const isSceneRoot = node.__type__ === 'cc.Scene';
+    const isPrefabRoot = node.__type__ === 'cc.Prefab';
     const nodeName = isRoot ? 'Root' : (node._name || '(unnamed)');
     const active = node._active !== false ? '●' : '○';
     const uuidRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -283,9 +284,13 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
     let result = '';
     
     if (isSceneRoot) {
-        result = prefix + '[Scene]\n';
+        result = '[Scene]\n';
+    } else if (isPrefabRoot) {
+        const prefabNode = data[1];
+        result = `[Prefab] ${prefabNode?._name || 'Root'}\n`;
     } else {
-        result = prefix + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
+        const connector = isRoot ? '' : (isLast ? '└── ' : '├── ');
+        result = prefix + connector + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
         
         // 添加组件信息
         if (node._components && node._components.length > 0) {
@@ -312,10 +317,10 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
     
     // 处理子节点
     if (node._children && node._children.length > 0) {
+        const childPrefix = prefix + (isSceneRoot ? '' : (isRoot ? '' : (isLast ? '    ' : '│   ')));
         node._children.forEach((childRef, idx) => {
             const childIsLast = idx === node._children.length - 1;
-            const childPrefix = prefix + (isSceneRoot ? '' : (isRoot ? '' : (isLast ? '    ' : '│   ')));
-            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, isSceneRoot);
+            result += buildTree(data, scriptMap, childRef.__id__, childPrefix, childIsLast, false);
         });
     }
     
