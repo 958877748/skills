@@ -125,7 +125,7 @@ JSON 格式 (create-prefab / create-scene):
 // 解析参数
 const args = process.argv.slice(2);
 
-if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+if (args.length === 0 || args[0] === '--help' || args[0] === '-h' || args[0] === 'help') {
     showHelp();
     process.exit(0);
 }

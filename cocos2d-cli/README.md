@@ -18,6 +18,13 @@ npm install -g cocos2d-cli
 
 ## 使用
 
+```bash
+cocos2d-cli help          # 查看帮助
+cocos2d-cli --help        # 同上
+```
+
+### 创建预制体
+
 ### 创建预制体
 
 ```bash
