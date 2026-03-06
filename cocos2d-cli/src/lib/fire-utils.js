@@ -232,7 +232,7 @@ function installPlugin(scenePath) {
             fs.mkdirSync(packagesPath, { recursive: true });
         }
         
-        const cliPluginPath = path.join(__dirname, '..', '..', 'editor-plugin', 'cocos2d-cli-helper');
+        const cliPluginPath = path.join(__dirname, '..', '..', 'editor-plugin');
         
         if (!fs.existsSync(cliPluginPath)) return false;
         
