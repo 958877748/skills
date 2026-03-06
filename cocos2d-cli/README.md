@@ -13,7 +13,7 @@ Cocos Creator 场景/预制体命令行操作工具，支持通过 CLI 或 AI �
 ## 安装
 
 ```bash
-npm install
+npm install -g cocos2d-cli
 ```
 
 ## 使用
@@ -22,55 +22,55 @@ npm install
 
 ```bash
 # 创建空预制体
-node bin/cocos2d-cli.js create-prefab ./MyPrefab.prefab
+cocos2d-cli create-prefab ./MyPrefab.prefab
 
 # 从 JSON 创建预制体
-node bin/cocos2d-cli.js create-prefab ./ui.json ./MyPrefab.prefab
+cocos2d-cli create-prefab ./ui.json ./MyPrefab.prefab
 ```
 
 ### 创建场景
 
 ```bash
 # 创建默认场景（含 Canvas 和 Main Camera）
-node bin/cocos2d-cli.js create-scene ./MyScene.fire
+cocos2d-cli create-scene ./MyScene.fire
 
 # 从 JSON 创建场景
-node bin/cocos2d-cli.js create-scene ./ui.json ./MyScene.fire
+cocos2d-cli create-scene ./ui.json ./MyScene.fire
 ```
 
 ### 节点操作
 
 ```bash
 # 添加节点
-node bin/cocos2d-cli.js add ./MyPrefab.prefab Root NewNode --type=sprite --width=100 --height=100
+cocos2d-cli add ./MyPrefab.prefab Root NewNode --type=sprite --width=100 --height=100
 
 # 删除节点
-node bin/cocos2d-cli.js remove ./MyPrefab.prefab Root/NewNode
+cocos2d-cli remove ./MyPrefab.prefab Root/NewNode
 
 # 查看节点树
-node bin/cocos2d-cli.js tree ./MyPrefab.prefab
+cocos2d-cli tree ./MyPrefab.prefab
 ```
 
 ### 组件操作
 
 ```bash
 # 添加组件
-node bin/cocos2d-cli.js add-component ./MyPrefab.prefab Root label
+cocos2d-cli add-component ./MyPrefab.prefab Root label
 
 # 删除组件
-node bin/cocos2d-cli.js remove-component ./MyPrefab.prefab Root label
+cocos2d-cli remove-component ./MyPrefab.prefab Root label
 ```
 
 ### 属性操作
 
 ```bash
 # 获取属性
-node bin/cocos2d-cli.js get ./MyPrefab.prefab Root width
-node bin/cocos2d-cli.js get ./MyPrefab.prefab Root label.string
+cocos2d-cli get ./MyPrefab.prefab Root width
+cocos2d-cli get ./MyPrefab.prefab Root label.string
 
 # 设置属性
-node bin/cocos2d-cli.js set ./MyPrefab.prefab Root width 200
-node bin/cocos2d-cli.js set ./MyPrefab.prefab Root label.string "Hello"
+cocos2d-cli set ./MyPrefab.prefab Root width 200
+cocos2d-cli set ./MyPrefab.prefab Root label.string "Hello"
 ```
 
 ## 简化 JSON 格式
