@@ -269,7 +269,7 @@ function buildComponentInfo(data, node, scriptMap, uuidRegex) {
     
     const comps = node._components.map(c => {
         const comp = data[c.__id__];
-        if (!comp) return `? #${c.__id__}`;
+        if (!comp) return '?';
         const typeName = comp.__type__;
         let displayName;
         if (uuidRegex.test(typeName)) {
@@ -280,7 +280,7 @@ function buildComponentInfo(data, node, scriptMap, uuidRegex) {
         } else {
             displayName = typeName.replace('cc.', '');
         }
-        return `${displayName} #${c.__id__}`;
+        return displayName;
     }).join(', ');
     
     return ` (${comps})`;
@@ -316,7 +316,7 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
         if (!prefabNode) return '';
         
         const prefabActive = prefabNode._active !== false ? '●' : '○';
-        result = prefabActive + ' ' + (prefabNode._name || 'Root') + ' #' + 1;
+        result = prefabActive + ' ' + (prefabNode._name || 'Root');
         result += buildComponentInfo(data, prefabNode, scriptMap, uuidRegex);
         result += '\n';
         
@@ -330,7 +330,7 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
         return result;
     } else {
         const connector = isRoot ? '' : (isLast ? '└── ' : '├── ');
-        result = prefix + connector + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
+        result = prefix + connector + (isRoot ? '' : active + ' ') + nodeName;
         result += buildComponentInfo(data, node, scriptMap, uuidRegex);
         result += '\n';
     }
