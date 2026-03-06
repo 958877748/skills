@@ -262,6 +262,31 @@ function deleteNode(data, nodeIndex, rebuildReferences) {
 }
 
 /**
+ * 构建组件信息字符串
+ */
+function buildComponentInfo(data, node, scriptMap, uuidRegex) {
+    if (!node._components || node._components.length === 0) return '';
+    
+    const comps = node._components.map(c => {
+        const comp = data[c.__id__];
+        if (!comp) return `? #${c.__id__}`;
+        const typeName = comp.__type__;
+        let displayName;
+        if (uuidRegex.test(typeName)) {
+            const scriptInfo = scriptMap[typeName];
+            displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '[MissingScript]';
+        } else if (typeName === 'MissingScript') {
+            displayName = '[MissingScript]';
+        } else {
+            displayName = typeName.replace('cc.', '');
+        }
+        return `${displayName} #${c.__id__}`;
+    }).join(', ');
+    
+    return ` (${comps})`;
+}
+
+/**
  * 构建节点树输出
  * @param {Array} data - 场景数据
  * @param {object} scriptMap - 脚本映射
@@ -286,32 +311,27 @@ function buildTree(data, scriptMap, nodeIndex, prefix = '', isLast = true, isRoo
     if (isSceneRoot) {
         result = '[Scene]\n';
     } else if (isPrefabRoot) {
+        // 预制体直接显示根节点
         const prefabNode = data[1];
-        result = `[Prefab] ${prefabNode?._name || 'Root'}\n`;
+        if (!prefabNode) return '';
+        
+        const prefabActive = prefabNode._active !== false ? '●' : '○';
+        result = prefabActive + ' ' + (prefabNode._name || 'Root') + ' #' + 1;
+        result += buildComponentInfo(data, prefabNode, scriptMap, uuidRegex);
+        result += '\n';
+        
+        // 处理子节点
+        if (prefabNode._children && prefabNode._children.length > 0) {
+            prefabNode._children.forEach((childRef, idx) => {
+                const childIsLast = idx === prefabNode._children.length - 1;
+                result += buildTree(data, scriptMap, childRef.__id__, '', childIsLast, false);
+            });
+        }
+        return result;
     } else {
         const connector = isRoot ? '' : (isLast ? '└── ' : '├── ');
         result = prefix + connector + (isRoot ? '' : active + ' ') + nodeName + ' #' + nodeIndex;
-        
-        // 添加组件信息
-        if (node._components && node._components.length > 0) {
-            const comps = node._components.map(c => {
-                const comp = data[c.__id__];
-                if (!comp) return `? #${c.__id__}`;
-                const typeName = comp.__type__;
-                let displayName;
-                if (uuidRegex.test(typeName)) {
-                    const scriptInfo = scriptMap[typeName];
-                    displayName = (scriptInfo && scriptInfo.name) ? scriptInfo.name : '[MissingScript]';
-                } else if (typeName === 'MissingScript') {
-                    displayName = '[MissingScript]';
-                } else {
-                    displayName = typeName.replace('cc.', '');
-                }
-                return `${displayName} #${c.__id__}`;
-            }).join(', ');
-            result += ` (${comps})`;
-        }
-        
+        result += buildComponentInfo(data, node, scriptMap, uuidRegex);
         result += '\n';
     }
     

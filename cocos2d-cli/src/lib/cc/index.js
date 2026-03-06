@@ -3,6 +3,22 @@ const CCNode = require('./CCNode');
 const CCScene = require('./CCScene');
 const CCSceneAsset = require('./CCSceneAsset');
 const { CCPrefab, CCPrefabInfo } = require('./CCPrefab');
+const CCColor = require('./CCColor');
+const CCSize = require('./CCSize');
+const CCVec2 = require('./CCVec2');
+const CCVec3 = require('./CCVec3');
+const CCTrs = require('./CCTrs');
+const CCRect = require('./CCRect');
+const CCComponent = require('./CCComponent');
+const CCCanvas = require('./CCCanvas');
+const CCWidget = require('./CCWidget');
+const CCCamera = require('./CCCamera');
+const CCSprite = require('./CCSprite');
+const CCLabel = require('./CCLabel');
+const CCButton = require('./CCButton');
+const SceneParser = require('./SceneParser');
+const PrefabParser = require('./PrefabParser');
+const { generateUUID } = require('../utils');
 
 /**
  * 场景数据数组管理器
@@ -12,7 +28,7 @@ class SceneData {
         this.data = [];
         
         // 创建基础场景结构
-        const asset = new CCSceneAsset(name);
+        const asset = new CCSceneAsset(); // SceneAsset 不需要名字
         const scene = new CCScene(name);
         
         asset.setScene(1);
@@ -40,6 +56,7 @@ class SceneData {
     addNode(node) {
         const index = this.data.length;
         node.setParent(1); // 父节点是 Scene
+        node.setId(generateUUID()); // 场景中的节点需要 _id
         this.getScene().addChild(index);
         this.data.push(node);
         return index;
@@ -60,7 +77,7 @@ class SceneData {
      */
     toJSON() {
         return this.data.map(item => {
-            if (item instanceof CCObject) {
+            if (item && typeof item.toJSON === 'function') {
                 return item.toJSON();
             }
             return item;
@@ -135,7 +152,7 @@ class PrefabData {
      */
     toJSON() {
         return this.data.map(item => {
-            if (item instanceof CCObject) {
+            if (item && typeof item.toJSON === 'function') {
                 return item.toJSON();
             }
             return item;
@@ -150,6 +167,21 @@ module.exports = {
     CCSceneAsset,
     CCPrefab,
     CCPrefabInfo,
+    CCColor,
+    CCSize,
+    CCVec2,
+    CCVec3,
+    CCTrs,
+    CCRect,
+    CCComponent,
+    CCCanvas,
+    CCWidget,
+    CCCamera,
+    CCSprite,
+    CCLabel,
+    CCButton,
+    SceneParser,
+    PrefabParser,
     SceneData,
     PrefabData
 };

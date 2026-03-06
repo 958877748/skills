@@ -1,5 +1,9 @@
 const CCObject = require('./CCObject');
-const { generateUUID } = require('../utils');
+const CCColor = require('./CCColor');
+const CCSize = require('./CCSize');
+const CCVec2 = require('./CCVec2');
+const CCVec3 = require('./CCVec3');
+const CCTrs = require('./CCTrs');
 
 /**
  * Cocos Creator 节点类
@@ -24,13 +28,13 @@ class CCNode extends CCObject {
         
         // 显示属性
         this._opacity = 255;
-        this._color = { __type__: 'cc.Color', r: 255, g: 255, b: 255, a: 255 };
-        this._contentSize = { __type__: 'cc.Size', width: 0, height: 0 };
-        this._anchorPoint = { __type__: 'cc.Vec2', x: 0.5, y: 0.5 };
+        this._color = new CCColor();
+        this._contentSize = new CCSize();
+        this._anchorPoint = new CCVec2(0.5, 0.5);
         
         // 变换属性
-        this._trs = { __type__: 'TypedArray', ctor: 'Float64Array', array: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1] };
-        this._eulerAngles = { __type__: 'cc.Vec3', x: 0, y: 0, z: 0 };
+        this._trs = new CCTrs();
+        this._eulerAngles = new CCVec3();
         this._skewX = 0;
         this._skewY = 0;
         this._is3DNode = false;
@@ -39,16 +43,51 @@ class CCNode extends CCObject {
         this._groupIndex = 0;
         this.groupIndex = 0;
         
-        // 唯一标识
-        this._id = generateUUID();
+        // 唯一标识（预制体中为空，场景中生成）
+        this._id = '';
     }
+
+    /**
+     * 设置 ID
+     */
+    setId(id) {
+        this._id = id;
+        return this;
+    }
+
+    // Position getters/setters
+    get x() { return this._trs.x; }
+    set x(v) { this._trs.x = v; }
+
+    get y() { return this._trs.y; }
+    set y(v) { this._trs.y = v; }
+
+    // Scale getters/setters
+    get scaleX() { return this._trs.scaleX; }
+    set scaleX(v) { this._trs.scaleX = v; }
+
+    get scaleY() { return this._trs.scaleY; }
+    set scaleY(v) { this._trs.scaleY = v; }
+
+    // Size getters/setters
+    get width() { return this._contentSize.width; }
+    set width(v) { this._contentSize.width = v; }
+
+    get height() { return this._contentSize.height; }
+    set height(v) { this._contentSize.height = v; }
+
+    // Anchor getters/setters
+    get anchorX() { return this._anchorPoint.x; }
+    set anchorX(v) { this._anchorPoint.x = v; }
+
+    get anchorY() { return this._anchorPoint.y; }
+    set anchorY(v) { this._anchorPoint.y = v; }
 
     /**
      * 设置位置
      */
     setPosition(x, y) {
-        this._trs.array[0] = x;
-        this._trs.array[1] = y;
+        this._trs.setPosition(x, y);
         return this;
     }
 
@@ -56,8 +95,7 @@ class CCNode extends CCObject {
      * 设置大小
      */
     setContentSize(width, height) {
-        this._contentSize.width = width;
-        this._contentSize.height = height;
+        this._contentSize.set(width, height);
         return this;
     }
 
@@ -65,8 +103,7 @@ class CCNode extends CCObject {
      * 设置锚点
      */
     setAnchorPoint(x, y) {
-        this._anchorPoint.x = x;
-        this._anchorPoint.y = y;
+        this._anchorPoint.set(x, y);
         return this;
     }
 
@@ -74,8 +111,7 @@ class CCNode extends CCObject {
      * 设置缩放
      */
     setScale(x, y = x) {
-        this._trs.array[7] = x;
-        this._trs.array[8] = y;
+        this._trs.setScale(x, y);
         return this;
     }
 
@@ -83,7 +119,7 @@ class CCNode extends CCObject {
      * 设置旋转（角度）
      */
     setRotation(angle) {
-        this._trs.array[5] = angle * Math.PI / 180;
+        this._trs.rotZ = angle * Math.PI / 180;
         this._eulerAngles.z = angle;
         return this;
     }
@@ -92,10 +128,7 @@ class CCNode extends CCObject {
      * 设置颜色
      */
     setColor(r, g, b, a = 255) {
-        this._color.r = r;
-        this._color.g = g;
-        this._color.b = b;
-        this._color.a = a;
+        this._color.set(r, g, b, a);
         return this;
     }
 
@@ -137,6 +170,32 @@ class CCNode extends CCObject {
     addComponent(compIndex) {
         this._components.push({ __id__: compIndex });
         return this;
+    }
+
+    toJSON() {
+        // 显式控制属性顺序
+        return {
+            __type__: this.__type__,
+            _name: this._name,
+            _objFlags: this._objFlags,
+            _parent: this._parent,
+            _children: this._children,
+            _active: this._active,
+            _components: this._components,
+            _prefab: this._prefab,
+            _opacity: this._opacity,
+            _color: this._color.toJSON(),
+            _contentSize: this._contentSize.toJSON(),
+            _anchorPoint: this._anchorPoint.toJSON(),
+            _trs: this._trs.toJSON(),
+            _eulerAngles: this._eulerAngles.toJSON(),
+            _skewX: this._skewX,
+            _skewY: this._skewY,
+            _is3DNode: this._is3DNode,
+            _groupIndex: this._groupIndex,
+            groupIndex: this.groupIndex,
+            _id: this._id
+        };
     }
 }
 

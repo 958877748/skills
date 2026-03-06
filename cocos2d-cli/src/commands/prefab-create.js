@@ -4,10 +4,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { outputError, outputSuccess } = require('../lib/utils');
+const { outputError } = require('../lib/utils');
+const { buildTree } = require('../lib/node-utils');
 const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
 const { createPrefab, PrefabData, CCNode, CCPrefabInfo } = require('../lib/templates');
-const { generateFileId } = require('../lib/fire-utils');
+const { generateFileId, loadScriptMap } = require('../lib/fire-utils');
 
 /**
  * 从 JSON 定义创建预制体数据
@@ -25,7 +26,7 @@ function createPrefabData(nodeDef) {
         }
     }
     
-    return prefabData.toJSON();
+    return prefabData;
 }
 
 /**
@@ -135,12 +136,8 @@ function run(args) {
             const data = createPrefab(prefabName);
             fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
             
-            outputSuccess({ 
-                path: outputPath,
-                rootName: prefabName,
-                nodes: 1,
-                components: 0
-            });
+            const scriptMap = loadScriptMap(outputPath);
+            console.log(buildTree(data, scriptMap, 1).trim());
             return;
         } catch (err) {
             outputError(err.message);
@@ -166,21 +163,11 @@ function run(args) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        fs.writeFileSync(outputPath, JSON.stringify(prefabData, null, 2), 'utf8');
+        const data = prefabData.toJSON();
+        fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
 
-        let nodeCount = 0, compCount = 0;
-        for (const item of prefabData) {
-            if (item.__type__ === 'cc.Node') nodeCount++;
-            else if (item.__type__?.startsWith('cc.') && !['cc.Prefab', 'cc.PrefabInfo'].includes(item.__type__)) {
-                compCount++;
-            }
-        }
-
-        outputSuccess({
-            path: outputPath,
-            nodes: nodeCount,
-            components: compCount
-        });
+        const scriptMap = loadScriptMap(outputPath);
+        console.log(buildTree(data, scriptMap, 1).trim());
 
     } catch (err) {
         outputError(err.message);

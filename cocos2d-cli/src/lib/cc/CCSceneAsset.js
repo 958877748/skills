@@ -4,8 +4,8 @@ const CCObject = require('./CCObject');
  * Cocos Creator 场景资源类
  */
 class CCSceneAsset extends CCObject {
-    constructor(name = 'NewScene') {
-        super(name);
+    constructor() {
+        super(''); // SceneAsset 不需要名字
         this.__type__ = 'cc.SceneAsset';
         
         this._native = '';

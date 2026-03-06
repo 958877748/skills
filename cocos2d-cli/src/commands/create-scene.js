@@ -7,8 +7,24 @@ const path = require('path');
 const { outputError } = require('../lib/utils');
 const { buildTree } = require('../lib/node-utils');
 const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
-const { createScene, SceneData, CCNode } = require('../lib/templates');
+const { SceneData, CCNode } = require('../lib/templates');
 const { loadScriptMap } = require('../lib/fire-utils');
+
+/**
+ * 从 meta 文件读取 uuid
+ */
+function readUuidFromMeta(scenePath) {
+    const metaPath = scenePath + '.meta';
+    if (fs.existsSync(metaPath)) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            return meta.uuid || null;
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
 
 /**
  * 从 JSON 定义创建场景数据
@@ -24,7 +40,7 @@ function createSceneData(nodeDefs, sceneName) {
         addNodeFromDef(sceneData, nodeDef, 1); // 1 是 Scene 的索引
     }
 
-    return sceneData.toJSON();
+    return sceneData;
 }
 
 /**
@@ -118,7 +134,15 @@ function run(args) {
                 fs.mkdirSync(dir, { recursive: true });
             }
             
-            const data = createScene(sceneName);
+            const sceneData = new SceneData(sceneName);
+            
+            // 读取 meta 文件中的 uuid
+            const uuid = readUuidFromMeta(outputPath);
+            if (uuid) {
+                sceneData.getScene()._id = uuid;
+            }
+            
+            const data = sceneData.toJSON();
             fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
             
             const scriptMap = loadScriptMap(outputPath);
@@ -141,16 +165,23 @@ function run(args) {
         const nodeDef = JSON.parse(cleanInput);
 
         const sceneData = createSceneData(nodeDef, sceneName);
+        
+        // 读取 meta 文件中的 uuid
+        const uuid = readUuidFromMeta(outputPath);
+        if (uuid) {
+            sceneData.getScene()._id = uuid;
+        }
 
         const outputDir = path.dirname(outputPath);
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        fs.writeFileSync(outputPath, JSON.stringify(sceneData, null, 2), 'utf8');
+        const data = sceneData.toJSON();
+        fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
         
         const scriptMap = loadScriptMap(outputPath);
-        console.log(buildTree(sceneData, scriptMap, 1).trim());
+        console.log(buildTree(data, scriptMap, 1).trim());
 
     } catch (err) {
         outputError(err.message);

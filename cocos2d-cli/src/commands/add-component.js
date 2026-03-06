@@ -1,119 +1,93 @@
 /**
- * add-component 命令 - 给已存在的节点添加组件
+ * add-component 命令 - 给节点添加组件
  */
 
-const { loadScene, saveScene, buildMaps, findNodeIndex, refreshEditor } = require('../lib/fire-utils');
-const { outputError, outputSuccess, generateId } = require('../lib/utils');
-const { createComponent } = require('../lib/components');
-const fs = require('fs');
 const path = require('path');
+const { SceneParser, PrefabParser, CCCanvas, CCWidget, CCSprite, CCLabel, CCButton, CCCamera } = require('../lib/cc');
 
-// 加载脚本映射
-function loadScriptMap(projectPath) {
-    const mapPath = path.join(projectPath, 'data', 'script_map.json');
-    try {
-        if (fs.existsSync(mapPath)) {
-            return JSON.parse(fs.readFileSync(mapPath, 'utf-8'));
-        }
-    } catch (e) {}
-    return {};
-}
-
-// 创建自定义脚本组件
-function createScriptComponent(scriptUuid, nodeId, scriptMap) {
-    const scriptInfo = scriptMap[scriptUuid];
-    const typeName = scriptInfo ? scriptInfo.name : scriptUuid;
-    
-    return {
-        "__type__": typeName,
-        "_name": "",
-        "_objFlags": 0,
-        "node": { "__id__": nodeId },
-        "_enabled": true,
-        "_id": generateId()
-    };
+/**
+ * 创建组件
+ */
+function createComponent(type) {
+    switch (type.toLowerCase()) {
+        case 'canvas':
+            return new CCCanvas();
+        case 'widget':
+            return new CCWidget();
+        case 'sprite':
+            return new CCSprite();
+        case 'label':
+            return new CCLabel();
+        case 'button':
+            return new CCButton();
+        case 'camera':
+            return new CCCamera();
+        default:
+            return null;
+    }
 }
 
 function run(args) {
     if (args.length < 3) {
-        outputError('用法: cocos2d-cli add-component <场景文件路径> <节点路径> <组件类型>');
+        console.log(JSON.stringify({ error: '用法: cocos2d-cli add-component <场景.fire|预制体.prefab> <节点路径> <组件类型>' }));
         return;
     }
     
-    const scenePath = args[0];
-    const nodeRef = args[1];
+    const filePath = args[0];
+    const nodePath = args[1];
     const componentType = args[2];
     
+    const ext = path.extname(filePath).toLowerCase();
+    
     try {
-        const data = loadScene(scenePath);
-        const { indexMap } = buildMaps(data);
+        let parser;
         
-        const nodeIndex = findNodeIndex(data, indexMap, nodeRef);
-        
-        if (nodeIndex === null || !data[nodeIndex]) {
-            outputError(`找不到节点: ${nodeRef}`);
+        if (ext === '.fire') {
+            parser = SceneParser.parse(filePath);
+        } else if (ext === '.prefab') {
+            parser = PrefabParser.parse(filePath);
+        } else {
+            console.log(JSON.stringify({ error: '不支持的文件类型，仅支持 .fire 和 .prefab' }));
             return;
         }
         
-        const node = data[nodeIndex];
+        const node = parser.resolveNode(nodePath);
+        
+        if (!node) {
+            console.log(JSON.stringify({ error: `节点不存在: ${nodePath}` }));
+            return;
+        }
         
         // 检查是否已有该类型组件
         const ccType = 'cc.' + componentType.charAt(0).toUpperCase() + componentType.slice(1);
-        const existingComp = node._components?.find(comp => {
-            const compData = data[comp.__id__];
-            if (!compData) return false;
-            const compType = compData.__type__;
-            return compType === componentType || compType === ccType;
-        });
+        const existingComp = node._components?.find(c => c.__type__ === ccType);
         
         if (existingComp) {
-            outputError(`节点 "${node._name}" 已有 ${componentType} 组件`);
+            console.log(JSON.stringify({ error: `节点已有 ${ccType} 组件` }));
             return;
         }
         
-        const compIndex = data.length;
-        let componentData;
+        // 创建组件
+        const comp = createComponent(componentType);
         
-        // 尝试使用内置组件
-        componentData = createComponent(componentType, nodeIndex);
-        
-        if (!componentData) {
-            // 自定义脚本组件
-            const projectPath = path.dirname(scenePath);
-            const scriptMap = loadScriptMap(projectPath);
-            
-            let scriptUuid = null;
-            for (const [uuid, info] of Object.entries(scriptMap)) {
-                if (info.name === componentType) {
-                    scriptUuid = uuid;
-                    break;
-                }
-            }
-            
-            const uuidRegex = /^[a-f0-9-]{36}$/i;
-            if (!scriptUuid && uuidRegex.test(componentType)) {
-                scriptUuid = componentType;
-            }
-            
-            componentData = createScriptComponent(scriptUuid || componentType, nodeIndex, scriptMap);
+        if (!comp) {
+            console.log(JSON.stringify({ error: `未知组件类型: ${componentType}` }));
+            return;
         }
         
-        data.push(componentData);
+        parser.addComponent(node, comp);
         
-        if (!node._components) node._components = [];
-        node._components.push({ "__id__": compIndex });
+        // 保存
+        parser.save(filePath);
         
-        saveScene(scenePath, data);
-        refreshEditor(scenePath);
+        console.log(JSON.stringify({
+            success: true,
+            node: node._name,
+            component: ccType
+        }, null, 2));
         
-        outputSuccess({
-            componentIndex: compIndex,
-            componentType: componentData.__type__,
-            nodeIndex,
-            nodeName: node._name
-        });
     } catch (err) {
-        outputError(err.message);
+        console.log(JSON.stringify({ error: err.message }));
     }
 }
 
