@@ -5,34 +5,33 @@
 const fs = require('fs');
 const path = require('path');
 const { outputError, outputSuccess } = require('../lib/utils');
-const { createNodeData } = require('../lib/node-utils');
 const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
-const { createPrefab, generateFileId } = require('../lib/templates');
+const { createPrefab, PrefabData, CCNode, CCPrefabInfo } = require('../lib/templates');
+const { generateFileId } = require('../lib/fire-utils');
 
 /**
  * 从 JSON 定义创建预制体数据
  */
 function createPrefabData(nodeDef) {
-    const data = createPrefab(nodeDef.name || 'Node');
+    const prefabData = new PrefabData(nodeDef.name || 'Node');
     
-    // 更新根节点
-    const root = data[1];
-    applyNodeDefToNode(root, nodeDef, null);
+    // 更新根节点属性
+    applyNodeDefToNode(prefabData.getRoot(), nodeDef);
     
     // 递归添加子节点
     if (nodeDef.children && nodeDef.children.length > 0) {
         for (const childDef of nodeDef.children) {
-            addChildNode(data, childDef, 1);
+            addChildFromDef(prefabData, childDef, 1);
         }
     }
     
-    return data;
+    return prefabData.toJSON();
 }
 
 /**
  * 应用 JSON 定义到节点
  */
-function applyNodeDefToNode(node, def, parentId) {
+function applyNodeDefToNode(node, def) {
     if (def.name) node._name = def.name;
     if (def.active !== undefined) node._active = def.active;
     if (def.opacity !== undefined) node._opacity = def.opacity;
@@ -55,22 +54,26 @@ function applyNodeDefToNode(node, def, parentId) {
             node._color = { "__type__": "cc.Color", ...parsed };
         }
     }
-    if (parentId !== null) {
-        node._parent = { "__id__": parentId };
-    }
 }
 
 /**
  * 添加子节点
  */
-function addChildNode(data, def, parentIndex) {
-    const nodeIndex = data.length;
-    const node = createNodeData(def.name || 'Node', parentIndex, def);
+function addChildFromDef(prefabData, def, parentIndex) {
+    const node = new CCNode(def.name || 'Node');
+    node.setParent(parentIndex);
     
-    // 设置 _prefab 为 null，后面会添加 PrefabInfo
-    node._prefab = null;
+    // 应用属性
+    applyNodeDefToNode(node, def);
     
-    data.push(node);
+    const nodeIndex = prefabData.data.length;
+    prefabData.data[parentIndex].addChild(nodeIndex);
+    
+    // 创建 PrefabInfo
+    const prefabInfo = new CCPrefabInfo(1, 0);
+    
+    prefabData.data.push(node, prefabInfo);
+    node._prefab = { __id__: prefabData.data.length - 1 };
     
     // 添加组件
     if (def.components) {
@@ -80,31 +83,17 @@ function addChildNode(data, def, parentIndex) {
                 const comp = createComponent(parsed.type, nodeIndex);
                 if (comp) {
                     applyComponentProps(comp, parsed.props, node);
-                    data.push(comp);
-                    node._components.push({ "__id__": data.length - 1 });
+                    prefabData.data.push(comp);
+                    node.addComponent(prefabData.data.length - 1);
                 }
             }
         }
     }
     
-    // 添加 PrefabInfo
-    const prefabInfo = {
-        "__type__": "cc.PrefabInfo",
-        "root": { "__id__": 1 },
-        "asset": { "__id__": 0 },
-        "fileId": generateFileId(),
-        "sync": false
-    };
-    data.push(prefabInfo);
-    node._prefab = { "__id__": data.length - 1 };
-    
-    // 更新父节点
-    data[parentIndex]._children.push({ "__id__": nodeIndex });
-    
     // 递归处理子节点
     if (def.children && def.children.length > 0) {
         for (const childDef of def.children) {
-            addChildNode(data, childDef, nodeIndex);
+            addChildFromDef(prefabData, childDef, nodeIndex);
         }
     }
 }

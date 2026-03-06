@@ -4,40 +4,62 @@
 
 const fs = require('fs');
 const path = require('path');
-const { outputError, outputSuccess } = require('../lib/utils');
-const { createNodeData, buildTree } = require('../lib/node-utils');
+const { outputError } = require('../lib/utils');
+const { buildTree } = require('../lib/node-utils');
 const { parseComponent, createComponent, applyComponentProps } = require('../lib/components');
-const { createScene } = require('../lib/templates');
+const { createScene, SceneData, CCNode } = require('../lib/templates');
 const { loadScriptMap } = require('../lib/fire-utils');
 
 /**
  * 从 JSON 定义创建场景数据
  */
 function createSceneData(nodeDefs, sceneName) {
-    const data = createScene(sceneName);
+    const sceneData = new SceneData(sceneName);
     
-    // Canvas 节点索引
-    const canvasIndex = 2;
-
     // 支持数组或单个节点
     const nodes = Array.isArray(nodeDefs) ? nodeDefs : [nodeDefs];
     
-    // 添加用户节点到 Canvas
+    // 添加用户节点到 Scene
     for (const nodeDef of nodes) {
-        addUserNode(data, nodeDef, canvasIndex);
+        addNodeFromDef(sceneData, nodeDef, 1); // 1 是 Scene 的索引
     }
 
-    return data;
+    return sceneData.toJSON();
 }
 
 /**
- * 添加用户节点
+ * 从定义添加节点
  */
-function addUserNode(data, def, parentIndex) {
-    const nodeIndex = data.length;
-    const node = createNodeData(def.name || 'Node', parentIndex, def);
+function addNodeFromDef(sceneData, def, parentIndex) {
+    const node = new CCNode(def.name || 'Node');
+    node.setParent(parentIndex);
     
-    data.push(node);
+    // 应用属性
+    if (def.active !== undefined) node._active = def.active;
+    if (def.opacity !== undefined) node._opacity = def.opacity;
+    if (def.width !== undefined) node._contentSize.width = def.width;
+    if (def.height !== undefined) node._contentSize.height = def.height;
+    if (def.x !== undefined) node._trs.array[0] = def.x;
+    if (def.y !== undefined) node._trs.array[1] = def.y;
+    if (def.rotation !== undefined) {
+        node._trs.array[5] = def.rotation * Math.PI / 180;
+        node._eulerAngles.z = def.rotation;
+    }
+    if (def.scaleX !== undefined) node._trs.array[7] = def.scaleX;
+    if (def.scaleY !== undefined) node._trs.array[8] = def.scaleY;
+    if (def.anchorX !== undefined) node._anchorPoint.x = def.anchorX;
+    if (def.anchorY !== undefined) node._anchorPoint.y = def.anchorY;
+    if (def.color) {
+        const { parseColor } = require('../lib/utils');
+        const parsed = parseColor(def.color);
+        if (parsed) {
+            node._color = { "__type__": "cc.Color", ...parsed };
+        }
+    }
+    
+    const nodeIndex = sceneData.data.length;
+    sceneData.data[parentIndex].addChild(nodeIndex);
+    sceneData.data.push(node);
     
     // 添加组件
     if (def.components) {
@@ -47,20 +69,17 @@ function addUserNode(data, def, parentIndex) {
                 const comp = createComponent(parsed.type, nodeIndex);
                 if (comp) {
                     applyComponentProps(comp, parsed.props, node);
-                    data.push(comp);
-                    node._components.push({ "__id__": data.length - 1 });
+                    sceneData.data.push(comp);
+                    node.addComponent(sceneData.data.length - 1);
                 }
             }
         }
     }
     
-    // 更新父节点的 _children
-    data[parentIndex]._children.push({ "__id__": nodeIndex });
-    
     // 递归处理子节点
     if (def.children && def.children.length > 0) {
         for (const childDef of def.children) {
-            addUserNode(data, childDef, nodeIndex);
+            addNodeFromDef(sceneData, childDef, nodeIndex);
         }
     }
 }
