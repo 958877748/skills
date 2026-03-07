@@ -8,7 +8,7 @@ const { outputError } = require('../lib/utils');
 const { buildTree } = require('../lib/node-utils');
 const { createPrefab } = require('../lib/templates');
 const { CCPrefab, CCPrefabInfo } = require('../lib/cc');
-const { loadScriptMap } = require('../lib/fire-utils');
+const { loadScriptMap, createPrefabMeta, saveMetaFile } = require('../lib/fire-utils');
 const { fromJSON } = require('../lib/json-parser');
 
 /**
@@ -60,6 +60,9 @@ function run(args) {
             const data = prefab.toJSON();
             fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
             
+            // 生成并保存 meta 文件
+            saveMetaFile(outputPath, createPrefabMeta());
+            
             const scriptMap = loadScriptMap(outputPath);
             console.log(buildTree(data, scriptMap, 1).trim());
             return;
@@ -93,6 +96,9 @@ function run(args) {
 
         const data = prefab.toJSON();
         fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
+        
+        // 生成并保存 meta 文件
+        saveMetaFile(outputPath, createPrefabMeta());
 
         const scriptMap = loadScriptMap(outputPath);
         console.log(buildTree(data, scriptMap, 1).trim());

@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 /**
  * 检测是否为预制体文件
@@ -277,6 +278,72 @@ function getPrefabRootIndex(data) {
     return 1;
 }
 
+/**
+ * 生成 UUID
+ */
+function generateUUID() {
+    return crypto.randomUUID();
+}
+
+/**
+ * 生成预制体的 meta 对象
+ * @param {string} uuid - 可选的 UUID，不传则自动生成
+ * @returns {object}
+ */
+function createPrefabMeta(uuid) {
+    return {
+        ver: '1.3.2',
+        uuid: uuid || generateUUID(),
+        importer: 'prefab',
+        optimizationPolicy: 'AUTO',
+        asyncLoadAssets: false,
+        readonly: false,
+        subMetas: {}
+    };
+}
+
+/**
+ * 生成场景的 meta 对象
+ * @param {string} uuid - 可选的 UUID，不传则自动生成
+ * @returns {object}
+ */
+function createSceneMeta(uuid) {
+    return {
+        ver: '1.3.2',
+        uuid: uuid || generateUUID(),
+        importer: 'scene',
+        asyncLoadAssets: false,
+        autoReleaseAssets: false,
+        subMetas: {}
+    };
+}
+
+/**
+ * 保存 meta 文件
+ * @param {string} filePath - 资源文件路径（.prefab 或 .fire）
+ * @param {object} meta - meta 对象
+ */
+function saveMetaFile(filePath, meta) {
+    const metaPath = filePath + '.meta';
+    fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+    return metaPath;
+}
+
+/**
+ * 加载 meta 文件
+ * @param {string} filePath - 资源文件路径
+ * @returns {object|null}
+ */
+function loadMetaFile(filePath) {
+    const metaPath = filePath + '.meta';
+    try {
+        if (fs.existsSync(metaPath)) {
+            return JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        }
+    } catch (e) {}
+    return null;
+}
+
 module.exports = {
     // 文件操作
     loadScene,
@@ -292,6 +359,13 @@ module.exports = {
     refreshEditor,
     installPlugin,
     checkPluginStatus,
+    
+    // Meta 文件管理
+    generateUUID,
+    createPrefabMeta,
+    createSceneMeta,
+    saveMetaFile,
+    loadMetaFile,
     
     // 工具函数
     loadScriptMap,

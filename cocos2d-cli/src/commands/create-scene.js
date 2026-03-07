@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { CCNode, CCScene, CCSceneAsset, CCCanvas, CCWidget, CCCamera } = require('../lib/cc');
 const { buildTree } = require('../lib/node-utils');
-const { loadScriptMap } = require('../lib/fire-utils');
+const { loadScriptMap, createSceneMeta, saveMetaFile } = require('../lib/fire-utils');
 const { generateUUID, generateCompressedUUID } = require('../lib/utils');
 const { fromJSON } = require('../lib/json-parser');
 
@@ -168,6 +168,11 @@ function run(args) {
         // 保存
         const data = asset.toJSON();
         fs.writeFileSync(outputPath, JSON.stringify(data, null, 2), 'utf8');
+        
+        // 生成并保存 meta 文件（如果不存在）
+        if (!uuid) {
+            saveMetaFile(outputPath, createSceneMeta(scene._id));
+        }
 
         // 输出 tree
         const scriptMap = loadScriptMap(outputPath);
