@@ -176,6 +176,51 @@ class CCNode extends CCObject {
     }
 
     /**
+     * 获取属性
+     */
+    getProp() {
+        const trs = this._trs?.array || [0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
+        const result = {
+            name: this._name,
+            active: this._active,
+            x: trs[0],
+            y: trs[1],
+            width: this._contentSize?.width ?? 0,
+            height: this._contentSize?.height ?? 0,
+            anchorX: this._anchorPoint?.x ?? 0.5,
+            anchorY: this._anchorPoint?.y ?? 0.5,
+            scaleX: trs[7],
+            scaleY: trs[8],
+            rotation: this._eulerAngles?.z ?? 0,
+            opacity: this._opacity ?? 255,
+            color: this._color ? `#${this._color.r.toString(16).padStart(2,'0')}${this._color.g.toString(16).padStart(2,'0')}${this._color.b.toString(16).padStart(2,'0')}` : '#ffffff'
+        };
+        return result;
+    }
+
+    /**
+     * 设置属性
+     */
+    setProp(props) {
+        if (props.name !== undefined) this._name = props.name;
+        if (props.active !== undefined) this._active = props.active;
+        if (props.x !== undefined) this._trs.array[0] = props.x;
+        if (props.y !== undefined) this._trs.array[1] = props.y;
+        if (props.width !== undefined) this._contentSize.width = props.width;
+        if (props.height !== undefined) this._contentSize.height = props.height;
+        if (props.anchorX !== undefined) this._anchorPoint.x = props.anchorX;
+        if (props.anchorY !== undefined) this._anchorPoint.y = props.anchorY;
+        if (props.scaleX !== undefined) this._trs.array[7] = props.scaleX;
+        if (props.scaleY !== undefined) this._trs.array[8] = props.scaleY;
+        if (props.rotation !== undefined) {
+            this._trs.array[5] = props.rotation * Math.PI / 180;
+            this._eulerAngles.z = props.rotation;
+        }
+        if (props.opacity !== undefined) this._opacity = props.opacity;
+        return this;
+    }
+
+    /**
      * 转换为属性面板显示格式（人类可读）
      */
     toPanelJSON() {
@@ -199,7 +244,7 @@ class CCNode extends CCObject {
             result.components = {};
             this._components.forEach(c => {
                 const typeName = c.__type__.replace('cc.', '');
-                result.components[typeName] = c.toPanelJSON ? c.toPanelJSON() : {};
+                result.components[typeName] = c.getProp ? c.getProp() : {};
             });
         }
         

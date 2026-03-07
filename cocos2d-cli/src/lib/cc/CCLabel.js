@@ -56,14 +56,13 @@ class CCLabel extends CCComponent {
     }
 
     /**
-     * 转换为属性面板显示格式
+     * 获取属性
      */
-    toPanelJSON() {
+    getProp() {
         const H_ALIGN = ['LEFT', 'CENTER', 'RIGHT'];
         const V_ALIGN = ['TOP', 'CENTER', 'BOTTOM'];
         const OVERFLOW = ['NONE', 'CLAMP', 'SHRINK', 'RESIZE_HEIGHT'];
         return {
-            ...super.toPanelJSON(),
             string: this._string,
             fontSize: this._fontSize,
             lineHeight: this._lineHeight,
@@ -73,6 +72,19 @@ class CCLabel extends CCComponent {
             overflow: OVERFLOW[this._N$overflow] || this._N$overflow,
             wrap: this._enableWrapText
         };
+    }
+
+    /**
+     * 设置属性
+     */
+    setProp(props) {
+        if (props.string !== undefined) this.setString(props.string);
+        if (props.fontSize !== undefined) this.setFontSize(props.fontSize);
+        if (props.lineHeight !== undefined) this._lineHeight = props.lineHeight;
+        if (props.fontFamily !== undefined) this.setFontFamily(props.fontFamily);
+        if (props.horizontalAlign !== undefined) this._N$horizontalAlign = props.horizontalAlign;
+        if (props.verticalAlign !== undefined) this._N$verticalAlign = props.verticalAlign;
+        return this;
     }
 
     toJSON() {

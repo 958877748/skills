@@ -1,6 +1,12 @@
 const CCObject = require('./CCObject');
 const CCScene = require('./CCScene');
 const CCNode = require('./CCNode');
+const CCCanvas = require('./CCCanvas');
+const CCWidget = require('./CCWidget');
+const CCSprite = require('./CCSprite');
+const CCLabel = require('./CCLabel');
+const CCButton = require('./CCButton');
+const CCCamera = require('./CCCamera');
 const { generateCompressedUUID } = require('../utils');
 
 /**
@@ -230,13 +236,39 @@ function createObject(item) {
         return node;
     }
     
-    // 组件
-    const comp = { __type__: type };
+    // 组件 - 创建类实例
+    const comp = createComponentInstance(type);
+    if (comp) {
+        copyComponentProps(comp, item);
+        return comp;
+    }
+    
+    // 未知类型，返回普通对象
+    const obj = { __type__: type };
+    for (const key of Object.keys(item)) {
+        obj[key] = item[key];
+    }
+    return obj;
+}
+
+function createComponentInstance(type) {
+    switch (type) {
+        case 'cc.Canvas': return new CCCanvas();
+        case 'cc.Widget': return new CCWidget();
+        case 'cc.Sprite': return new CCSprite();
+        case 'cc.Label': return new CCLabel();
+        case 'cc.Button': return new CCButton();
+        case 'cc.Camera': return new CCCamera();
+        default: return null;
+    }
+}
+
+function copyComponentProps(comp, item) {
     for (const key of Object.keys(item)) {
         if (['__type__', '_name', '_objFlags', 'node', '_enabled', '_id'].includes(key)) continue;
         comp[key] = item[key];
     }
-    return comp;
+    if (item._id) comp._id = item._id;
 }
 
 function copyNodeProps(node, item) {

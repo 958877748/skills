@@ -1,5 +1,5 @@
 /**
- * set 命令 - 设置节点属性
+ * set-component 命令 - 设置组件属性
  */
 
 const path = require('path');
@@ -33,16 +33,31 @@ function findNode(root, nodePath) {
     return current;
 }
 
+/**
+ * 查找组件
+ */
+function findComponent(node, compType) {
+    if (!node._components) return null;
+    
+    const type = compType.toLowerCase();
+    const typeName = 'cc.' + type.charAt(0).toUpperCase() + type.slice(1);
+    
+    return node._components.find(c => c.__type__ === typeName);
+}
+
 function run(args) {
     if (args.length < 4) {
-        console.log(JSON.stringify({ error: '用法: cocos2d-cli set <场景.fire|预制体.prefab> <节点路径> <属性名> <值>' }));
+        console.log(JSON.stringify({ 
+            error: '用法: cocos2d-cli set-component <场景.fire|预制体.prefab> <节点路径> <组件类型> <属性名> <值>' 
+        }));
         return;
     }
     
     const filePath = args[0];
     const nodePath = args[1];
-    const prop = args[2];
-    const value = args[3];
+    const compType = args[2];
+    const prop = args[3];
+    const value = args[4];
     
     const ext = path.extname(filePath).toLowerCase();
     
@@ -69,25 +84,22 @@ function run(args) {
             return;
         }
         
-        // 调用节点的 setProp 方法
-        if (typeof node.setProp !== 'function') {
-            console.log(JSON.stringify({ error: '节点不支持 setProp 方法' }));
+        const comp = findComponent(node, compType);
+        
+        if (!comp) {
+            console.log(JSON.stringify({ error: `组件不存在: ${compType}` }));
             return;
         }
         
-        // 转换数值类型
-        let parsedValue = value;
-        if (!isNaN(value) && value !== '') {
-            parsedValue = parseFloat(value);
-        } else if (value === 'true') {
-            parsedValue = true;
-        } else if (value === 'false') {
-            parsedValue = false;
+        // 调用组件的 setProp 方法
+        if (typeof comp.setProp !== 'function') {
+            console.log(JSON.stringify({ error: '组件不支持 setProp 方法' }));
+            return;
         }
         
         // 构造属性对象并调用 setProp
-        const props = { [prop]: parsedValue };
-        node.setProp(props);
+        const props = { [prop]: value };
+        comp.setProp(props);
         
         // 保存
         const data = asset.toJSON();

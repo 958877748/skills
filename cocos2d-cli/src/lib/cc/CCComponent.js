@@ -36,13 +36,20 @@ class CCComponent extends CCObject {
     }
 
     /**
-     * 转换为属性面板显示格式（子类重写）
+     * 获取属性（子类重写）
      */
-    toPanelJSON() {
+    getProp() {
         return {
-            type: this.__type__,
             enabled: this._enabled
         };
+    }
+
+    /**
+     * 设置属性（子类重写）
+     */
+    setProp(props) {
+        if (props.enabled !== undefined) this._enabled = props.enabled;
+        return this;
     }
 
     toJSON() {
