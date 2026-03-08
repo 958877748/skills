@@ -8,13 +8,13 @@ class CCComponent extends CCObject {
     constructor() {
         super('');
         this.__type__ = 'cc.Component';
-        
+
         // 关联的节点
         this.node = null;
-        
+
         // 启用状态
         this._enabled = true;
-        
+
         // 唯一标识（22位压缩格式）
         this._id = generateId();
     }
@@ -28,18 +28,11 @@ class CCComponent extends CCObject {
     }
 
     /**
-     * 设置启用状态
-     */
-    setEnabled(enabled) {
-        this._enabled = enabled;
-        return this;
-    }
-
-    /**
      * 获取属性（子类重写）
      */
     getProp() {
         return {
+            class: this.__type__,
             enabled: this._enabled
         };
     }

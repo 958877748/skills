@@ -82,8 +82,8 @@ function createDefaultScene(asset, resolution) {
     
     // Canvas 组件
     const canvasComp = new CCCanvas();
-    canvasComp.setDesignResolution(width, height);
-    canvasComp.node = canvas;
+    canvasComp._designResolution.set(width, height);
+    canvas.addChild(canvasComp);
     
     // Widget 组件
     const widget = new CCWidget();
@@ -95,11 +95,6 @@ function createDefaultScene(asset, resolution) {
     
     // 创建 Main Camera 节点
     const camera = new CCNode('Main Camera');
-    camera._contentSize.width = 0;
-    camera._contentSize.height = 0;
-    camera._anchorPoint.x = 0.5;
-    camera._anchorPoint.y = 0.5;
-    camera._is3DNode = false;
     camera._id = generateCompressedUUID();
     
     // Camera 组件

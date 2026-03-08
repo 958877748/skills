@@ -12,37 +12,37 @@ class CCNode extends CCObject {
     constructor(name = 'Node') {
         super(name);
         this.__type__ = 'cc.Node';
-        
+
         // 父子关系
         this._parent = null;
         this._children = [];
-        
+
         // 激活状态
         this._active = true;
-        
+
         // 组件列表
         this._components = [];
-        
+
         // 预制体信息
         this._prefab = null;
-        
+
         // 显示属性
         this._opacity = 255;
         this._color = new CCColor();
         this._contentSize = new CCSize();
         this._anchorPoint = new CCVec2(0.5, 0.5);
-        
+
         // 变换属性
         this._trs = new CCTrs();
         this._eulerAngles = new CCVec3();
         this._skewX = 0;
         this._skewY = 0;
         this._is3DNode = false;
-        
+
         // 分组
         this._groupIndex = 0;
         this.groupIndex = 0;
-        
+
         // 唯一标识（预制体中为空，场景中生成）
         this._id = '';
     }
@@ -193,7 +193,7 @@ class CCNode extends CCObject {
             scaleY: trs[8],
             rotation: this._eulerAngles?.z ?? 0,
             opacity: this._opacity ?? 255,
-            color: this._color ? `#${this._color.r.toString(16).padStart(2,'0')}${this._color.g.toString(16).padStart(2,'0')}${this._color.b.toString(16).padStart(2,'0')}` : '#ffffff'
+            color: this._color ? `#${this._color.r.toString(16).padStart(2, '0')}${this._color.g.toString(16).padStart(2, '0')}${this._color.b.toString(16).padStart(2, '0')}` : '#ffffff'
         };
         return result;
     }
@@ -218,37 +218,6 @@ class CCNode extends CCObject {
         }
         if (props.opacity !== undefined) this._opacity = props.opacity;
         return this;
-    }
-
-    /**
-     * 转换为属性面板显示格式（人类可读）
-     */
-    toPanelJSON() {
-        const trs = this._trs?.array || [0, 0, 0, 0, 0, 0, 1, 1, 1, 1];
-        const result = {
-            name: this._name,
-            active: this._active,
-            position: { x: trs[0], y: trs[1] },
-            rotation: this._eulerAngles?.z ?? 0,
-            scale: { x: trs[7], y: trs[8] },
-            anchor: { x: this._anchorPoint?.x ?? 0.5, y: this._anchorPoint?.y ?? 0.5 },
-            size: { w: this._contentSize?.width ?? 0, h: this._contentSize?.height ?? 0 },
-            color: this._color ? `#${this._color.r.toString(16).padStart(2,'0')}${this._color.g.toString(16).padStart(2,'0')}${this._color.b.toString(16).padStart(2,'0')}` : '#ffffff',
-            opacity: this._opacity ?? 255,
-            skew: { x: this._skewX ?? 0, y: this._skewY ?? 0 },
-            group: this._groupIndex ?? 0
-        };
-        
-        // 组件列表
-        if (this._components && this._components.length > 0) {
-            result.components = {};
-            this._components.forEach(c => {
-                const typeName = c.__type__.replace('cc.', '');
-                result.components[typeName] = c.getProp ? c.getProp() : {};
-            });
-        }
-        
-        return result;
     }
 
     toJSON(indexMap) {
