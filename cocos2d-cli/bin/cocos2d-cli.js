@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/**     
+/**       
  * Cocos Creator CLI
  * Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes
  */
@@ -81,41 +81,21 @@ add 支持的选项:
   --string=<文字>        Label 文字内容 (配合 --type=label)
   --fontSize=<数值>      Label 字体大小 (配合 --type=label)
 
-JSON 格式 (create-prefab / create-scene):
-  注意: 参数必须是 JSON 文件路径，不支持直接传递 JSON 字符串
-
+JSON 格式:
+  详见 SKILL.md 完整文档。简要示例：
   {
-    "name": "节点名称",
-    "width": 400,
-    "height": 300,
-    "x": 0,
-    "y": 0,
-    "color": "#336699",
-    "opacity": 255,
+    "name": "Node",
+    "width": 400, "height": 300,
+    "x": 0, "y": 0,
+    "anchorX": 0, "color": "#336699",
     "components": [
-      "sprite",
-      { "type": "widget", "top": 0, "left": 0, "right": 0, "bottom": 0 },
-      { "type": "label", "string": "Hello", "fontSize": 32 }
+      { "type": "label", "string": "Hello", "horizontalAlign": "left" },
+      { "type": "richText", "string": "<color=#3cb034>绿色</color>" }
     ],
     "children": [...]
   }
 
-  节点属性: name, width, height, x, y, color, opacity, anchorX, anchorY, rotation, scaleX, scaleY, active
-
-  组件写法:
-    简写: "sprite" 或 "label"
-    完整: { "type": "sprite", "sizeMode": 1 }
-    完整: { "type": "label", "string": "文本", "fontSize": 32, "color": "#fff" }
-
-  组件类型:
-    sprite   - 精灵（默认白色方块，节点设置什么颜色就显示什么颜色）
-    label    - 文本，支持 string, fontSize, color(兼容)
-    button   - 按钮，通常配合 sprite 使用才能看见
-    widget   - 对齐，支持 top, bottom, left, right
-    layout   - 布局，自动排列子节点
-    canvas   - 画布，根节点使用
-    camera   - 相机
-    particle - 粒子效果
+  提示：配合 anchorX + horizontalAlign 实现靠左/靠右布局（见 SKILL.md）
 
 示例:
   cocos2d-cli tree assets/main.fire
@@ -141,7 +121,7 @@ JSON 格式 (create-prefab / create-scene):
 
   # 截图
   cocos2d-cli screenshot data.json
-  cocos2d-cli screenshot data.json -o ./screenshots -w 1080 -h 1920
+  cocos2d-cli screenshot data.json -o ./screenshots --width 1080 --height 1920
 `);
 }
 

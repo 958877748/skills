@@ -16,7 +16,7 @@ class CCSprite extends CCComponent {
         this._dstBlendFactor = 771;
         this._spriteFrame = null;
         this._type = 0;
-        this._sizeMode = 1;
+        this._sizeMode = 0;
         this._fillType = 0;
         this._fillCenter = new CCVec2();
         this._fillStart = 0;
@@ -37,7 +37,7 @@ class CCSprite extends CCComponent {
 
     /**
      * 设置尺寸模式
-     * 0: CUSTOM, 1: RAW, 2: TRIMMED
+     * 0: CUSTOM, 1: TRIMMED, 2: RAW
      */
     setSizeMode(mode) {
         this._sizeMode = mode;

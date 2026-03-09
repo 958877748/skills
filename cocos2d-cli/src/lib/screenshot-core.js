@@ -1,5 +1,5 @@
 /**
- * Screenshot Core Module
+ * Screenshot Core Module 
  * 渲染 JSON 数据并使用 Playwright 截图
  */
 
@@ -16,6 +16,7 @@ const DEFAULT_CONFIG = {
     outputDir: process.cwd(),
     viewport: { width: 750, height: 1334 },
     fullPage: true,
+    debugBounds: false,
     timeout: 30000,
     waitTime: 1000
 };
@@ -224,7 +225,10 @@ async function takeScreenshot(userConfig = {}) {
 
         // 加载页面
         console.log('\n=== Loading Page ===');
-        await page.goto(`${serverUrl}/index.html`, {
+        const pageUrl = config.debugBounds
+            ? `${serverUrl}/index.html?debugBounds=true`
+            : `${serverUrl}/index.html`;
+        await page.goto(pageUrl, {
             waitUntil: 'networkidle',
             timeout: config.timeout
         });

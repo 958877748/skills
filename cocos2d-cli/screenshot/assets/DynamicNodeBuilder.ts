@@ -1,5 +1,5 @@
 const { ccclass, property } = cc._decorator;
-
+  
 @ccclass
 export default class DynamicNodeBuilder extends cc.Component {
 
@@ -9,10 +9,20 @@ export default class DynamicNodeBuilder extends cc.Component {
     jsonString: string = ''; // 或直接提供 JSON 字符串
 
     start() {
+        // 读取 URL query 参数
+        const params = new URLSearchParams(window.location.search);
+        const debugBounds = params.get('debugBounds') === 'true';
+
         fetch('data.json')
             .then(response => response.json())
             .then(data => {
                 this.buildFromJson(data);
+                if (debugBounds) {
+                    // 等一帧让节点树布局稳定后再绘制
+                    this.scheduleOnce(() => {
+                        this.drawDebugBounds(this.node);
+                    }, 0.1);
+                }
             });
     }
 
@@ -63,6 +73,7 @@ export default class DynamicNodeBuilder extends cc.Component {
     // 应用节点属性和组件
     applyNodeConfig(node: cc.Node, data: any) {
         // --- 1. 设置节点基础属性 ---
+        if (data.name !== undefined) node.name = data.name;
         if (data.x !== undefined) node.x = data.x;
         if (data.y !== undefined) node.y = data.y;
         if (data.width !== undefined) node.width = data.width;
@@ -117,11 +128,13 @@ export default class DynamicNodeBuilder extends cc.Component {
                 break;
             case 'label':
                 comp = node.addComponent(cc.Label);
-                comp.horizontalAlign = cc.Label.HorizontalAlign.CENTER
-                comp.verticalAlign = cc.Label.VerticalAlign.CENTER
+                // 默认居中，可通过 horizontalAlign / verticalAlign 覆盖
+                comp.horizontalAlign = cc.Label.HorizontalAlign.CENTER;
+                comp.verticalAlign = cc.Label.VerticalAlign.CENTER;
 
-                // Label 的颜色设置到节点上
                 if (typeof config === 'object') {
+                    // color 写在组件内是兼容写法，实际同步到节点颜色
+                    // （Cocos 中文字颜色由节点 color 控制，不是组件属性）
                     if (config.color) {
                         node.color = this.parseColor(config.color);
                     }
@@ -130,9 +143,40 @@ export default class DynamicNodeBuilder extends cc.Component {
                     }
                     if (config.fontSize !== undefined) {
                         comp.fontSize = config.fontSize;
+                        comp.lineHeight = config.fontSize;
+                    }
+                    if (config.lineHeight !== undefined) {
+                        comp.lineHeight = config.lineHeight;
+                    }
+                    if (config.horizontalAlign !== undefined) {
+                        comp.horizontalAlign = this.parseHAlign(config.horizontalAlign);
+                    }
+                    if (config.verticalAlign !== undefined) {
+                        comp.verticalAlign = this.parseVAlign(config.verticalAlign);
                     }
                 }
                 break;
+            case 'richtext': {
+                const richComp = node.addComponent(cc.RichText);
+                if (richComp && typeof config === 'object') {
+                    if (config.string !== undefined) {
+                        richComp.string = config.string;
+                    }
+                    if (config.fontSize !== undefined) {
+                        richComp.fontSize = config.fontSize;
+                    }
+                    if (config.lineHeight !== undefined) {
+                        richComp.lineHeight = config.lineHeight;
+                    }
+                    if (config.maxWidth !== undefined) {
+                        richComp.maxWidth = config.maxWidth;
+                    }
+                    if (config.horizontalAlign !== undefined) {
+                        richComp.horizontalAlign = this.parseRichTextHAlign(config.horizontalAlign);
+                    }
+                }
+                break;
+            }
             case 'button':
                 comp = node.addComponent(cc.Button);
                 break;
@@ -171,6 +215,105 @@ export default class DynamicNodeBuilder extends cc.Component {
                 return;
         }
 
+    }
+
+    // debug-bounds：递归给所有节点叠加半透明边界框 + 节点名标签
+    drawDebugBounds(node: cc.Node) {
+        // 随机但固定的颜色（用节点名 hash）
+        const hash = node.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        const hue = (hash * 137) % 360;
+        const borderColor = cc.color().fromHEX(this.hslToHex(hue, 80, 50));
+        const bgColor = cc.color().fromHEX(this.hslToHex(hue, 80, 50));
+        bgColor.a = 30;
+
+        // 创建边界框覆盖层节点
+        const overlay = new cc.Node('__debug__');
+        overlay.width = node.width;
+        overlay.height = node.height;
+        overlay.anchorX = node.anchorX;
+        overlay.anchorY = node.anchorY;
+        overlay.x = 0;
+        overlay.y = 0;
+        node.addChild(overlay);
+
+        // 半透明背景
+        const bg = overlay.addComponent(cc.Graphics);
+        bg.fillColor = bgColor;
+        bg.rect(-node.width * node.anchorX, -node.height * node.anchorY, node.width, node.height);
+        bg.fill();
+
+        // 边框
+        bg.strokeColor = borderColor;
+        bg.lineWidth = 2;
+        bg.rect(-node.width * node.anchorX, -node.height * node.anchorY, node.width, node.height);
+        bg.stroke();
+
+        // 节点名标签（左上角）
+        const labelNode = new cc.Node('__debug_label__');
+        labelNode.anchorX = 0;
+        labelNode.anchorY = 1;
+        labelNode.x = -node.width * node.anchorX + 2;
+        labelNode.y = node.height * (1 - node.anchorY) - 2;
+        node.addChild(labelNode);
+
+        const label = labelNode.addComponent(cc.Label);
+        label.string = node.name;
+        label.fontSize = 18;
+        label.lineHeight = 20;
+        labelNode.color = borderColor;
+
+        // 递归处理子节点（跳过 debug 节点自身）
+        for (const child of node.children) {
+            if (!child.name.startsWith('__debug__') && !child.name.startsWith('__debug_label__')) {
+                this.drawDebugBounds(child);
+            }
+        }
+    }
+
+    // HSL 转 Hex 字符串
+    hslToHex(h: number, s: number, l: number): string {
+        s /= 100;
+        l /= 100;
+        const k = (n: number) => (n + h / 30) % 12;
+        const a = s * Math.min(l, 1 - l);
+        const f = (n: number) => {
+            const val = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+            return Math.round(255 * val).toString(16).padStart(2, '0');
+        };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    // 辅助：语义化水平对齐 left/center/right → cc.macro.TextAlignment（用于 RichText）
+    parseRichTextHAlign(value: string | number): cc.macro.TextAlignment {
+        if (typeof value === 'number') return value;
+        switch (String(value).toLowerCase()) {
+            case 'left':   return cc.macro.TextAlignment.LEFT;
+            case 'right':  return cc.macro.TextAlignment.RIGHT;
+            case 'center':
+            default:       return cc.macro.TextAlignment.CENTER;
+        }
+    }
+
+    // 辅助：语义化水平对齐 left/center/right → cc.Label.HorizontalAlign（用于 Label）
+    parseHAlign(value: string | number): cc.Label.HorizontalAlign {
+        if (typeof value === 'number') return value;
+        switch (String(value).toLowerCase()) {
+            case 'left':   return cc.Label.HorizontalAlign.LEFT;
+            case 'right':  return cc.Label.HorizontalAlign.RIGHT;
+            case 'center':
+            default:       return cc.Label.HorizontalAlign.CENTER;
+        }
+    }
+
+    // 辅助：语义化垂直对齐 top/center/bottom → cc.Label.VerticalAlign
+    parseVAlign(value: string | number): cc.Label.VerticalAlign {
+        if (typeof value === 'number') return value;
+        switch (String(value).toLowerCase()) {
+            case 'top':    return cc.Label.VerticalAlign.TOP;
+            case 'bottom': return cc.Label.VerticalAlign.BOTTOM;
+            case 'center':
+            default:       return cc.Label.VerticalAlign.CENTER;
+        }
     }
 
     // 辅助：解析 Hex 颜色 #RRGGBB 或 #RRGGBBAA

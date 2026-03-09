@@ -75,6 +75,31 @@ class CCLabel extends CCComponent {
     }
 
     /**
+     * 将语义化对齐字符串转为数字
+     * horizontalAlign: left=0, center=1, right=2
+     * verticalAlign:   top=0,  center=1, bottom=2
+     */
+    static parseHAlign(value) {
+        if (typeof value === 'number') return value;
+        switch (String(value).toLowerCase()) {
+            case 'left':   return 0;
+            case 'center': return 1;
+            case 'right':  return 2;
+            default:       return 1;
+        }
+    }
+
+    static parseVAlign(value) {
+        if (typeof value === 'number') return value;
+        switch (String(value).toLowerCase()) {
+            case 'top':    return 0;
+            case 'center': return 1;
+            case 'bottom': return 2;
+            default:       return 1;
+        }
+    }
+
+    /**
      * 设置属性
      */
     setProp(props) {
@@ -82,8 +107,8 @@ class CCLabel extends CCComponent {
         if (props.fontSize !== undefined) this.setFontSize(props.fontSize);
         if (props.lineHeight !== undefined) this._lineHeight = props.lineHeight;
         if (props.fontFamily !== undefined) this.setFontFamily(props.fontFamily);
-        if (props.horizontalAlign !== undefined) this._N$horizontalAlign = props.horizontalAlign;
-        if (props.verticalAlign !== undefined) this._N$verticalAlign = props.verticalAlign;
+        if (props.horizontalAlign !== undefined) this._N$horizontalAlign = CCLabel.parseHAlign(props.horizontalAlign);
+        if (props.verticalAlign !== undefined) this._N$verticalAlign = CCLabel.parseVAlign(props.verticalAlign);
         return this;
     }
 

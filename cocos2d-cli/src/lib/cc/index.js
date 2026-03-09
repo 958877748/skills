@@ -16,6 +16,7 @@ const CCCamera = require('./CCCamera');
 const CCSprite = require('./CCSprite');
 const CCLabel = require('./CCLabel');
 const CCButton = require('./CCButton');
+const CCRichText = require('./CCRichText');
 
 module.exports = {
     CCObject,
@@ -36,5 +37,6 @@ module.exports = {
     CCCamera,
     CCSprite,
     CCLabel,
-    CCButton
+    CCButton,
+    CCRichText
 };

@@ -3,7 +3,7 @@
  * 将简化JSON转换为CCNode对象树
  */
 
-const { CCNode, CCCanvas, CCWidget, CCSprite, CCLabel, CCButton, CCCamera } = require('./cc');
+const { CCNode, CCCanvas, CCWidget, CCSprite, CCLabel, CCButton, CCCamera, CCRichText } = require('./cc');
 const { parseColor } = require('./utils');
 
 /**
@@ -11,13 +11,14 @@ const { parseColor } = require('./utils');
  */
 function createComponent(type) {
     switch (type.toLowerCase()) {
-        case 'canvas': return new CCCanvas();
-        case 'widget': return new CCWidget();
-        case 'sprite': return new CCSprite();
-        case 'label': return new CCLabel();
-        case 'button': return new CCButton();
-        case 'camera': return new CCCamera();
-        default: return null;
+        case 'canvas':    return new CCCanvas();
+        case 'widget':    return new CCWidget();
+        case 'sprite':    return new CCSprite();
+        case 'label':     return new CCLabel();
+        case 'button':    return new CCButton();
+        case 'camera':    return new CCCamera();
+        case 'richtext':  return new CCRichText();
+        default:          return null;
     }
 }
 
@@ -59,7 +60,25 @@ function applyComponentProps(comp, props, node) {
             case 'sizeMode':
                 if (comp._sizeMode !== undefined) comp._sizeMode = value;
                 break;
+            case 'horizontalAlign':
+                // 支持语义化字符串：left / center / right
+                if (comp._N$horizontalAlign !== undefined) {
+                    comp._N$horizontalAlign = CCLabel.parseHAlign(value);
+                } else if (comp._horizontalAlign !== undefined) {
+                    comp._horizontalAlign = CCLabel.parseHAlign(value);
+                }
+                break;
+            case 'verticalAlign':
+                // 支持语义化字符串：top / center / bottom
+                if (comp._N$verticalAlign !== undefined) {
+                    comp._N$verticalAlign = CCLabel.parseVAlign(value);
+                } else if (comp._verticalAlign !== undefined) {
+                    comp._verticalAlign = CCLabel.parseVAlign(value);
+                }
+                break;
             case 'color':
+                // 兼容写法：组件内的 color 同步到节点颜色
+                // （Cocos 中文字/富文本颜色本质是节点颜色，不是组件属性）
                 if (node) {
                     const parsed = parseColor(value);
                     if (parsed && node._color) {
