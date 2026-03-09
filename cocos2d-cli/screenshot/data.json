@@ -1,0 +1,47 @@
+{
+    "name": "RootPanel",
+    "width": 600,
+    "height": 400,
+    "color": "#444444",
+    "components": [
+        "sprite",
+        { "type": "widget", "isAlignTop": true, "isAlignBottom": true, "isAlignLeft": true, "isAlignRight": true }
+    ],
+    "children": [
+        {
+            "name": "TitleLabel",
+            "y": 150,
+            "components": [
+                { "type": "label", "string": "动态生成的 UI", "fontSize": 30, "color": "#ffffff" }
+            ]
+        },
+        {
+            "name": "CloseBtn",
+            "x": 280,
+            "y": 180,
+            "width": 40,
+            "height": 40,
+            "color": "#ff0000",
+            "components": [
+                "sprite",
+                "button"
+            ]
+        },
+        {
+            "name": "ContentNode",
+            "y": -50,
+            "width": 500,
+            "height": 200,
+            "color": "#666666",
+            "components": ["sprite"],
+            "children": [
+                {
+                    "name": "Desc",
+                    "components": [
+                        { "type": "label", "string": "这是子节点内容", "fontSize": 20 }
+                    ]
+                }
+            ]
+        }
+    ]
+}
