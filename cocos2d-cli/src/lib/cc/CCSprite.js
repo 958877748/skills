@@ -1,6 +1,7 @@
 const CCComponent = require('./CCComponent');
-const CCColor = require('./CCColor');
 const CCVec2 = require('./CCVec2');
+
+const default_sprite_splash = 'a23235d1-15db-4b95-8439-a2e005bfff91';
 
 /**
  * Cocos Creator Sprite 组件
@@ -9,7 +10,7 @@ class CCSprite extends CCComponent {
     constructor() {
         super();
         this.__type__ = 'cc.Sprite';
-        
+
         this._materials = [{ __uuid__: 'eca5d2f2-8ef6-41c2-bbe6-f9c79d09c432' }];
         this._srcBlendFactor = 770;
         this._dstBlendFactor = 771;
@@ -22,6 +23,8 @@ class CCSprite extends CCComponent {
         this._fillRange = 0;
         this._isTrimmedMode = true;
         this._atlas = null;
+
+        this.setSpriteFrame(default_sprite_splash);
     }
 
     /**
