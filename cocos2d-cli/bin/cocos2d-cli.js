@@ -18,7 +18,8 @@ const commands = {
     'remove': '../src/commands/remove',
     build: '../src/commands/build',
     'create-prefab': '../src/commands/prefab-create',
-    'create-scene': '../src/commands/create-scene'
+    'create-scene': '../src/commands/create-scene',
+    'screenshot': '../src/commands/screenshot'
 };
 
 // 帮助信息
@@ -41,6 +42,7 @@ Cocos Creator CLI - 场景/预制体操作工具集
   build <项目目录>                              构建组件映射
   create-prefab [JSON文件路径] <输出.prefab>    创建预制体（不传JSON则创建默认）
   create-scene [JSON文件路径] <输出.fire>       创建场景（不传JSON则创建默认）
+  screenshot <json文件> [选项]                  渲染JSON并截图
 
 节点路径格式:
   Canvas                    - 根节点下的 Canvas
@@ -136,6 +138,10 @@ JSON 格式 (create-prefab / create-scene):
 
   # 创建默认预制体（不传JSON）
   cocos2d-cli create-prefab assets/NewNode.prefab
+
+  # 截图
+  cocos2d-cli screenshot data.json
+  cocos2d-cli screenshot data.json -o ./screenshots -w 1080 -h 1920
 `);
 }
 

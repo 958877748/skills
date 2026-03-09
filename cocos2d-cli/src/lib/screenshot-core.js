@@ -1,7 +1,10 @@
-// main.js - Playwright 截图核心模块
+/**
+ * Screenshot Core Module
+ * 渲染 JSON 数据并使用 Playwright 截图
+ */
+
 const { chromium } = require('playwright');
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const path = require('path');
 const http = require('http');
 const url = require('url');
@@ -17,27 +20,27 @@ const DEFAULT_CONFIG = {
     waitTime: 1000
 };
 
-// 获取 CLI 包内置资源目录
-function getPackageDir() {
-    return __dirname;
+// 获取内置资源目录
+function getAssetsDir() {
+    return path.join(__dirname, 'screenshot');
 }
 
 // 创建临时工作目录
 async function createTempWorkDir() {
     const tempBase = os.tmpdir();
     const timestamp = Date.now();
-    const tempDir = path.join(tempBase, `pws-${timestamp}`);
+    const tempDir = path.join(tempBase, `cocos2d-screenshot-${timestamp}`);
     await fs.mkdir(tempDir, { recursive: true });
     return tempDir;
 }
 
 // 复制内置资源到临时目录
 async function copyBuiltInAssets(tempDir) {
-    const packageDir = getPackageDir();
+    const assetsDir = getAssetsDir();
     const assets = ['index.html', 'favicon.ico'];
     
     for (const asset of assets) {
-        const src = path.join(packageDir, asset);
+        const src = path.join(assetsDir, asset);
         const dest = path.join(tempDir, asset);
         try {
             await fs.copyFile(src, dest);
@@ -110,7 +113,17 @@ async function removeDir(dirPath) {
     }
 }
 
-// 截图核心函数
+/**
+ * 截图核心函数
+ * @param {Object} userConfig - 配置选项
+ * @param {string} userConfig.jsonPath - JSON 文件路径
+ * @param {string} userConfig.outputDir - 输出目录
+ * @param {Object} userConfig.viewport - 视口大小 {width, height}
+ * @param {boolean} userConfig.fullPage - 是否全页截图
+ * @param {number} userConfig.timeout - 超时时间（毫秒）
+ * @param {number} userConfig.waitTime - 等待时间（毫秒）
+ * @returns {Promise<{screenshotPath: string, logs: Array}>}
+ */
 async function takeScreenshot(userConfig = {}) {
     const config = { ...DEFAULT_CONFIG, ...userConfig };
     
@@ -246,13 +259,3 @@ async function takeScreenshot(userConfig = {}) {
 }
 
 module.exports = { takeScreenshot };
-
-// 直接运行时的入口
-if (require.main === module) {
-    const jsonPath = process.argv[2];
-    if (!jsonPath) {
-        console.error('Usage: node main.js <json-file>');
-        process.exit(1);
-    }
-    takeScreenshot({ jsonPath }).catch(console.error);
-}
