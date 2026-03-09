@@ -1,10 +1,51 @@
-// screenshot.js - 最终完整版
+// main.js - Playwright 截图核心模块
 const { chromium } = require('playwright');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const http = require('http');
 const url = require('url');
 const os = require('os');
+
+// 默认配置
+const DEFAULT_CONFIG = {
+    jsonPath: null,
+    outputDir: process.cwd(),
+    viewport: { width: 750, height: 1334 },
+    fullPage: true,
+    timeout: 30000,
+    waitTime: 1000
+};
+
+// 获取 CLI 包内置资源目录
+function getPackageDir() {
+    return __dirname;
+}
+
+// 创建临时工作目录
+async function createTempWorkDir() {
+    const tempBase = os.tmpdir();
+    const timestamp = Date.now();
+    const tempDir = path.join(tempBase, `pws-${timestamp}`);
+    await fs.mkdir(tempDir, { recursive: true });
+    return tempDir;
+}
+
+// 复制内置资源到临时目录
+async function copyBuiltInAssets(tempDir) {
+    const packageDir = getPackageDir();
+    const assets = ['index.html', 'favicon.ico'];
+    
+    for (const asset of assets) {
+        const src = path.join(packageDir, asset);
+        const dest = path.join(tempDir, asset);
+        try {
+            await fs.copyFile(src, dest);
+        } catch (err) {
+            console.log(`Warning: Could not copy ${asset}: ${err.message}`);
+        }
+    }
+}
 
 // 静态文件服务器
 async function startServer(staticDir) {
@@ -14,14 +55,12 @@ async function startServer(staticDir) {
                 const parsedUrl = url.parse(req.url);
                 let filePath = path.join(staticDir, parsedUrl.pathname);
                 
-                // 如果请求根路径，返回index.html
                 if (parsedUrl.pathname === '/') {
                     filePath = path.join(staticDir, 'index.html');
                 }
                 
                 const data = await fs.readFile(filePath);
                 
-                // 根据文件扩展名设置正确的Content-Type
                 const ext = path.extname(filePath).toLowerCase();
                 const contentTypes = {
                     '.html': 'text/html',
@@ -37,10 +76,7 @@ async function startServer(staticDir) {
                     '.svg': 'image/svg+xml',
                     '.ico': 'image/x-icon',
                     '.txt': 'text/plain',
-                    '.xml': 'application/xml',
-                    '.fire': 'application/octet-stream',
-                    '.prefab': 'application/octet-stream',
-                    '.anim': 'application/octet-stream'
+                    '.xml': 'application/xml'
                 };
                 
                 res.writeHead(200, { 
@@ -54,7 +90,7 @@ async function startServer(staticDir) {
                     res.writeHead(404);
                     res.end();
                 } else {
-                    console.error(`❌ [服务器错误] ${req.url}:`, err.message);
+                    console.error(`[Server Error] ${req.url}:`, err.message);
                     res.writeHead(500);
                     res.end();
                 }
@@ -65,64 +101,73 @@ async function startServer(staticDir) {
     });
 }
 
-// 获取临时目录路径
-function getTempDir() {
-    return os.tmpdir();
+// 递归删除目录
+async function removeDir(dirPath) {
+    try {
+        await fs.rm(dirPath, { recursive: true, force: true });
+    } catch (err) {
+        console.log(`Warning: Could not remove temp dir: ${err.message}`);
+    }
 }
 
-async function main() {
+// 截图核心函数
+async function takeScreenshot(userConfig = {}) {
+    const config = { ...DEFAULT_CONFIG, ...userConfig };
+    
+    if (!config.jsonPath) {
+        throw new Error('JSON file path is required');
+    }
+    
     let server = null;
     let browser = null;
+    let tempDir = null;
     const logs = [];
+    let screenshotPath = null;
     
     try {
-        const currentDir = process.cwd();
-        const htmlFilePath = path.join(currentDir, 'index.html');
-        const jsonFilePath = path.join(currentDir, 'data.json');
         const timestamp = Date.now();
         
-        // 截图保存在当前目录
-        const screenshotPath = path.join(currentDir, `screenshot-${timestamp}.png`);
-        
-        // 日志文件保存在临时目录
-        const logPath = path.join(getTempDir(), `playwright-logs-${timestamp}.json`);
-
-        console.log('🚀 Playwright 截图工具启动\n');
-
-        // === 检查文件 ===
-        console.log('=== 检查文件 ===');
+        // 检查 JSON 文件是否存在
         try {
-            await fs.access(htmlFilePath);
-            console.log(`✅ HTML文件: ${path.basename(htmlFilePath)}`);
+            await fs.access(config.jsonPath);
         } catch (error) {
-            console.error(`❌ 错误: 找不到 ${htmlFilePath}`);
-            return;
+            throw new Error(`JSON file not found: ${config.jsonPath}`);
         }
         
-        try {
-            await fs.access(jsonFilePath);
-            console.log(`✅ JSON文件: ${path.basename(jsonFilePath)}`);
-        } catch (error) {
-            console.log(`⚠️ 警告: ${path.basename(jsonFilePath)} 不存在`);
-        }
+        // 确保输出目录存在
+        await fs.mkdir(config.outputDir, { recursive: true });
+        
+        // 创建临时工作目录
+        tempDir = await createTempWorkDir();
+        console.log(`Temp dir: ${tempDir}`);
 
-        // === 启动HTTP服务器 ===
-        console.log('\n=== 启动HTTP服务器 ===');
-        server = await startServer(currentDir);
+        // 复制内置资源到临时目录
+        await copyBuiltInAssets(tempDir);
+        
+        // 复制用户的 JSON 文件到临时目录
+        const destJsonPath = path.join(tempDir, 'data.json');
+        await fs.copyFile(config.jsonPath, destJsonPath);
+        console.log(`JSON: ${config.jsonPath}`);
+
+        // 截图输出路径
+        screenshotPath = path.join(config.outputDir, `screenshot-${timestamp}.png`);
+
+        // 启动HTTP服务器
+        console.log('\n=== Starting Server ===');
+        server = await startServer(tempDir);
         const serverUrl = `http://127.0.0.1:${server.address().port}`;
-        console.log(`✅ 服务器: ${serverUrl}`);
+        console.log(`Server: ${serverUrl}`);
 
-        // === 启动浏览器 ===
-        console.log('\n=== 启动浏览器 ===');
+        // 启动浏览器
+        console.log('\n=== Launching Browser ===');
         browser = await chromium.launch({
             headless: true,
             channel: 'chrome'
         });
-        console.log('✅ 浏览器已启动');
+        console.log('Browser launched');
 
-        // 创建新页面
         const page = await browser.newPage({
-            viewport: { width: 750, height: 1334 }
+            viewport: config.viewport
         });
 
         // 监听浏览器控制台日志
@@ -135,98 +180,79 @@ async function main() {
             });
             
             if (msg.type() === 'error') {
-                console.error(`❌ [浏览器] ${text}`);
+                console.error(`[Browser Error] ${text}`);
             } else if (msg.type() === 'warning') {
-                console.warn(`⚠️ [浏览器] ${text}`);
+                console.warn(`[Browser Warning] ${text}`);
             } else {
-                console.log(`📢 [浏览器] ${text}`);
+                console.log(`[Browser] ${text}`);
             }
         });
 
-        // 监听页面JavaScript错误
         page.on('pageerror', error => {
             logs.push({
                 timestamp: new Date().toISOString(),
                 type: 'pageerror',
                 text: error.message
             });
-            console.error('❌ [页面错误]', error.message);
+            console.error('[Page Error]', error.message);
         });
 
-        // 监听请求失败
         page.on('requestfailed', request => {
             const failure = request.failure();
-            const errorText = failure ? failure.errorText : '未知错误';
+            const errorText = failure ? failure.errorText : 'Unknown error';
             logs.push({
                 timestamp: new Date().toISOString(),
                 type: 'requestfailed',
                 url: request.url(),
                 error: errorText
             });
-            console.error(`❌ [请求失败] ${request.url()}`);
+            console.error(`[Request Failed] ${request.url()}`);
         });
 
-        // === 加载页面 ===
-        console.log('\n=== 加载页面 ===');
+        // 加载页面
+        console.log('\n=== Loading Page ===');
         await page.goto(`${serverUrl}/index.html`, {
             waitUntil: 'networkidle',
-            timeout: 30000
+            timeout: config.timeout
         });
-        console.log('✅ 页面加载完成');
+        console.log('Page loaded');
 
         // 等待渲染
-        console.log('\n=== 等待渲染 ===');
-        await page.waitForTimeout(1000);
-        console.log('✅ 等待完成');
+        console.log('\n=== Waiting for Render ===');
+        await page.waitForTimeout(config.waitTime);
+        console.log('Wait complete');
 
-        // === 截图 ===
-        console.log('\n=== 保存截图 ===');
+        // 截图
+        console.log('\n=== Taking Screenshot ===');
         await page.screenshot({
             path: screenshotPath,
-            fullPage: true
+            fullPage: config.fullPage
         });
-        console.log(`✅ 截图已保存: ${path.basename(screenshotPath)}`);
+        console.log(`Screenshot saved: ${screenshotPath}`);
 
-        // === 保存日志 ===
-        if (logs.length > 0) {
-            const logData = {
-                system: {
-                    timestamp: new Date().toISOString(),
-                    platform: os.platform(),
-                    arch: os.arch(),
-                    screenshot: path.basename(screenshotPath)
-                },
-                logs: logs,
-                summary: {
-                    total: logs.length,
-                    errors: logs.filter(log => log.type === 'error' || log.type === 'pageerror' || log.type === 'requestfailed').length,
-                    warnings: logs.filter(log => log.type === 'warning').length
-                }
-            };
-            
-            await fs.writeFile(logPath, JSON.stringify(logData, null, 2));
-            console.log(`✅ 日志已保存: ${path.basename(logPath)}`);
-        }
+        console.log('\n=== Done ===');
 
-        // === 完成 ===
-        console.log('\n=== 完成 ===');
-        console.log(`📸 截图: ${screenshotPath}`);
-        console.log(`📝 日志: ${logPath}`);
-        console.log(`🗑️  临时目录: ${getTempDir()}`);
-
-        // === 清理 ===
-        await browser.close();
-        server.close();
-        console.log('\n✅ 所有操作完成！');
+        return { screenshotPath, logs };
 
     } catch (error) {
-        console.error('\n❌ 执行出错:', error);
-        
+        console.error('\nError:', error.message);
+        throw error;
+    } finally {
         // 清理资源
         if (browser) await browser.close().catch(() => {});
         if (server) server.close();
+        if (tempDir) await removeDir(tempDir);
     }
 }
 
-// 执行主函数
-main().catch(console.error);
+module.exports = { takeScreenshot };
+
+// 直接运行时的入口
+if (require.main === module) {
+    const jsonPath = process.argv[2];
+    if (!jsonPath) {
+        console.error('Usage: node main.js <json-file>');
+        process.exit(1);
+    }
+    takeScreenshot({ jsonPath }).catch(console.error);
+}
