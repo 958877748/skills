@@ -89,10 +89,13 @@ async function run(args) {
     options.outputDir = path.resolve(options.outputDir);
 
     try {
-        const result = await takeScreenshot(options);
-        console.log(`\n截图成功: ${result.screenshotPath}`);
+        await takeScreenshot(options);
+        console.log('成功');
     } catch (error) {
-        console.error(`\n截图失败: ${error.message}`);
+        console.error('失败');
+        if (error.logDir) {
+            console.error(`日志目录: ${error.logDir}`);
+        }
         process.exit(1);
     }
 }

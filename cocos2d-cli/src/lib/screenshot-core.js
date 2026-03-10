@@ -1,5 +1,5 @@
 /**
- * Screenshot Core Module 
+ * Screenshot Core Module  
  * 渲染 JSON 数据并使用 Playwright 截图
  */
 
@@ -36,7 +36,7 @@ async function createTempWorkDir() {
 }
 
 // 复制内置资源到临时目录
-async function copyBuiltInAssets(tempDir) {
+async function copyBuiltInAssets(tempDir, logs) {
     const assetsDir = getAssetsDir();
     const assets = ['index.html', 'favicon.ico'];
     
@@ -46,13 +46,17 @@ async function copyBuiltInAssets(tempDir) {
         try {
             await fs.copyFile(src, dest);
         } catch (err) {
-            console.log(`Warning: Could not copy ${asset}: ${err.message}`);
+            logs.push({
+                timestamp: new Date().toISOString(),
+                type: 'warning',
+                text: `Could not copy ${asset}: ${err.message}`
+            });
         }
     }
 }
 
 // 静态文件服务器
-async function startServer(staticDir) {
+async function startServer(staticDir, logs) {
     return new Promise((resolve, reject) => {
         const server = http.createServer(async (req, res) => {
             try {
@@ -94,7 +98,11 @@ async function startServer(staticDir) {
                     res.writeHead(404);
                     res.end();
                 } else {
-                    console.error(`[Server Error] ${req.url}:`, err.message);
+                    logs.push({
+                        timestamp: new Date().toISOString(),
+                        type: 'server-error',
+                        text: `${req.url}: ${err.message}`
+                    });
                     res.writeHead(500);
                     res.end();
                 }
@@ -106,11 +114,17 @@ async function startServer(staticDir) {
 }
 
 // 递归删除目录
-async function removeDir(dirPath) {
+async function removeDir(dirPath, logs) {
     try {
         await fs.rm(dirPath, { recursive: true, force: true });
     } catch (err) {
-        console.log(`Warning: Could not remove temp dir: ${err.message}`);
+        if (logs) {
+            logs.push({
+                timestamp: new Date().toISOString(),
+                type: 'warning',
+                text: `Could not remove temp dir: ${err.message}`
+            });
+        }
     }
 }
 
@@ -137,6 +151,16 @@ async function takeScreenshot(userConfig = {}) {
     let tempDir = null;
     const logs = [];
     let screenshotPath = null;
+    let logDir = null;
+    
+    const addLog = (type, text, extra = {}) => {
+        logs.push({
+            timestamp: new Date().toISOString(),
+            type,
+            text,
+            ...extra
+        });
+    };
     
     try {
         const timestamp = Date.now();
@@ -153,32 +177,32 @@ async function takeScreenshot(userConfig = {}) {
         
         // 创建临时工作目录
         tempDir = await createTempWorkDir();
-        console.log(`Temp dir: ${tempDir}`);
+        addLog('info', `Temp dir: ${tempDir}`);
 
         // 复制内置资源到临时目录
-        await copyBuiltInAssets(tempDir);
-        
+        await copyBuiltInAssets(tempDir, logs);
+ 
         // 复制用户的 JSON 文件到临时目录
         const destJsonPath = path.join(tempDir, 'data.json');
         await fs.copyFile(config.jsonPath, destJsonPath);
-        console.log(`JSON: ${config.jsonPath}`);
+        addLog('info', `JSON: ${config.jsonPath}`);
 
         // 截图输出路径
         screenshotPath = path.join(config.outputDir, `screenshot-${timestamp}.png`);
 
         // 启动HTTP服务器
-        console.log('\n=== Starting Server ===');
-        server = await startServer(tempDir);
+        addLog('info', 'Starting Server');
+        server = await startServer(tempDir, logs);
         const serverUrl = `http://127.0.0.1:${server.address().port}`;
-        console.log(`Server: ${serverUrl}`);
+        addLog('info', `Server: ${serverUrl}`);
 
         // 启动浏览器
-        console.log('\n=== Launching Browser ===');
+        addLog('info', 'Launching Browser');
         browser = await chromium.launch({
             headless: true,
             channel: 'chrome'
         });
-        console.log('Browser launched');
+        addLog('info', 'Browser launched');
 
         const page = await browser.newPage({
             viewport: config.viewport
@@ -187,44 +211,21 @@ async function takeScreenshot(userConfig = {}) {
         // 监听浏览器控制台日志
         page.on('console', msg => {
             const text = msg.text();
-            logs.push({ 
-                timestamp: new Date().toISOString(), 
-                type: msg.type(), 
-                text 
-            });
-            
-            if (msg.type() === 'error') {
-                console.error(`[Browser Error] ${text}`);
-            } else if (msg.type() === 'warning') {
-                console.warn(`[Browser Warning] ${text}`);
-            } else {
-                console.log(`[Browser] ${text}`);
-            }
+            addLog(msg.type(), text);
         });
 
         page.on('pageerror', error => {
-            logs.push({
-                timestamp: new Date().toISOString(),
-                type: 'pageerror',
-                text: error.message
-            });
-            console.error('[Page Error]', error.message);
+            addLog('pageerror', error.message);
         });
 
         page.on('requestfailed', request => {
             const failure = request.failure();
             const errorText = failure ? failure.errorText : 'Unknown error';
-            logs.push({
-                timestamp: new Date().toISOString(),
-                type: 'requestfailed',
-                url: request.url(),
-                error: errorText
-            });
-            console.error(`[Request Failed] ${request.url()}`);
+            addLog('requestfailed', request.url(), { error: errorText });
         });
 
         // 加载页面
-        console.log('\n=== Loading Page ===');
+        addLog('info', 'Loading Page');
         const pageUrl = config.debugBounds
             ? `${serverUrl}/index.html?debugBounds=true`
             : `${serverUrl}/index.html`;
@@ -232,33 +233,53 @@ async function takeScreenshot(userConfig = {}) {
             waitUntil: 'networkidle',
             timeout: config.timeout
         });
-        console.log('Page loaded');
+        addLog('info', 'Page loaded');
 
         // 等待渲染
-        console.log('\n=== Waiting for Render ===');
+        addLog('info', 'Waiting for Render');
         await page.waitForTimeout(config.waitTime);
-        console.log('Wait complete');
+        addLog('info', 'Wait complete');
 
         // 截图
-        console.log('\n=== Taking Screenshot ===');
+        addLog('info', 'Taking Screenshot');
         await page.screenshot({
             path: screenshotPath,
             fullPage: config.fullPage
         });
-        console.log(`Screenshot saved: ${screenshotPath}`);
-
-        console.log('\n=== Done ===');
+        addLog('info', `Screenshot saved: ${screenshotPath}`);
+        addLog('info', 'Done');
 
         return { screenshotPath, logs };
 
     } catch (error) {
-        console.error('\nError:', error.message);
+        addLog('error', error.message);
+        try {
+            logDir = path.join(config.outputDir, `screenshot-logs-${Date.now()}`);
+            await fs.mkdir(logDir, { recursive: true });
+            await fs.writeFile(
+                path.join(logDir, 'logs.json'),
+                JSON.stringify({
+                    error: error.message,
+                    jsonPath: config.jsonPath,
+                    outputDir: config.outputDir,
+                    viewport: config.viewport,
+                    fullPage: config.fullPage,
+                    debugBounds: config.debugBounds,
+                    timeout: config.timeout,
+                    waitTime: config.waitTime,
+                    screenshotPath,
+                    logs
+                }, null, 2),
+                'utf8'
+            );
+        } catch (_) {}
+        error.logDir = logDir;
         throw error;
     } finally {
         // 清理资源
         if (browser) await browser.close().catch(() => {});
         if (server) server.close();
-        if (tempDir) await removeDir(tempDir);
+        if (tempDir) await removeDir(tempDir, logs);
     }
 }
 
