@@ -1,6 +1,6 @@
 ---
 name: cocos2d-cli 
-description: Cocos Creator 2.4.x CLI 工具使用规范，用于从 JSON 描述生成场景/预制体或截图预览
+description: Cocos Creator 2.4.x CLI 工具使用规范，用于从 JSON 描述生成场景/预制体、截图预览，以及对场景/预制体中的节点和组件进行增删改查
 ---
 
 # cocos2d-cli
