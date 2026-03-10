@@ -89,13 +89,18 @@ async function run(args) {
     options.outputDir = path.resolve(options.outputDir);
 
     try {
-        await takeScreenshot(options);
-        console.log('成功');
+        const result = await takeScreenshot(options);
+        const filename = path.basename(result.screenshotPath);
+        console.log(JSON.stringify({
+            success: true,
+            filename: filename
+        }));
     } catch (error) {
-        console.error('失败');
-        if (error.logDir) {
-            console.error(`日志目录: ${error.logDir}`);
-        }
+        console.log(JSON.stringify({
+            success: false,
+            error: error.message,
+            logDir: error.logDir || null
+        }));
         process.exit(1);
     }
 }
