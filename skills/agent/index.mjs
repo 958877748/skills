@@ -45,21 +45,20 @@ function main() {
   // 从命令行参数获取 prompt
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    console.error('用法: node index.js "<任务描述>"');
+    console.error('用法: node index.mjs "<任务描述>"');
     process.exit(1);
   }
   const prompt = args.join(' ');
 
-  console.log(`执行任务: ${prompt}`);
+  console.log('Running...');
   const response = runOpencode(prompt);
-  console.log('\n--- 完整输出 ---');
-  console.log(response);
 
   const trimmedContent = cleanOutput(response);
   const fileName = generateFileName();
 
   writeFileSync(fileName, trimmedContent);
-  console.log(`结果已写入 ${fileName}`);
+  console.log(`Saved to ${fileName}`);
+  console.log('Done.');
 }
 
 main();
