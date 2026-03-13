@@ -45,7 +45,7 @@ agent/logs/
 
 | 文件/目录 | 说明 |
 |-----------|------|
-| `agent/index.js` | 主脚本 |
+| `agent/index.mjs` | 主脚本 |
 | `agent/SKILL.md` | Skill 定义文件 |
 | `logs/` | 日志输出目录（生成在调用目录） |
 
