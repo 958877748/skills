@@ -32,57 +32,67 @@ function saveConfig(config) {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
+// 启动机器人的逻辑
+async function doStart(options = {}) {
+  let token = options.token;
+  
+  // 优先级: 1. 命令行参数 2. 环境变量 3. 配置文件
+  if (!token) {
+    token = process.env.DISCORD_TOKEN;
+  }
+  if (!token) {
+    const config = readConfig();
+    token = config.token;
+  }
+  
+  if (!token) {
+    ensureConfigDir();
+    
+    // 生成配置文件模板
+    const configTemplate = {
+      token: "YOUR_DISCORD_BOT_TOKEN_HERE",
+      description: "请将上面的 token 替换为你的 Discord Bot Token"
+    };
+    saveConfig(configTemplate);
+    
+    console.error('错误: 未设置 Discord Token');
+    console.log('');
+    console.log('已为你生成配置文件模板:');
+    console.log(`  ${configPath}`);
+    console.log('');
+    console.log('请按以下步骤操作:');
+    console.log('  1. 打开上述文件');
+    console.log('  2. 将 YOUR_DISCORD_BOT_TOKEN_HERE 替换为你的 Discord Bot Token');
+    console.log('  3. 再次运行 dm-bot');
+    console.log('');
+    console.log('或者你可以使用以下方式直接设置:');
+    console.log('  dm-bot --token <your-token>');
+    process.exit(1);
+  }
+  
+  process.env.DISCORD_TOKEN = token;
+  console.log('正在启动 Discord Bot...');
+  await startBot();
+}
+
 const program = new Command();
 
 program
   .name('dm-bot')
   .description('Discord DM Bot CLI with OpenCode integration')
-  .version('1.0.0');
+  .version('1.0.0')
+  .option('-t, --token <token>', 'Discord Bot Token')
+  .action(async (options) => {
+    // 默认执行启动
+    await doStart(options);
+  });
 
 program
   .command('start')
-  .description('启动 Discord 机器人')
+  .description('启动 Discord 机器人（默认命令）')
   .option('-t, --token <token>', 'Discord Bot Token')
   .action(async (options) => {
-    let token = options.token;
-    
-    // 优先级: 1. 命令行参数 2. 环境变量 3. 配置文件
-    if (!token) {
-      token = process.env.DISCORD_TOKEN;
-    }
-    if (!token) {
-      const config = readConfig();
-      token = config.token;
-    }
-    
-    if (!token) {
-      ensureConfigDir();
-      
-      // 生成配置文件模板
-      const configTemplate = {
-        token: "YOUR_DISCORD_BOT_TOKEN_HERE",
-        description: "请将上面的 token 替换为你的 Discord Bot Token"
-      };
-      saveConfig(configTemplate);
-      
-      console.error('错误: 未设置 Discord Token');
-      console.log('');
-      console.log('已为你生成配置文件模板:');
-      console.log(`  ${configPath}`);
-      console.log('');
-      console.log('请按以下步骤操作:');
-      console.log('  1. 打开上述文件');
-      console.log('  2. 将 YOUR_DISCORD_BOT_TOKEN_HERE 替换为你的 Discord Bot Token');
-      console.log('  3. 再次运行 dm-bot start');
-      console.log('');
-      console.log('或者你可以使用以下方式直接设置:');
-      console.log('  dm-bot start --token <your-token>');
-      process.exit(1);
-    }
-    
-    process.env.DISCORD_TOKEN = token;
-    console.log('正在启动 Discord Bot...');
-    await startBot();
+    await doStart(options);
   });
 
 program
