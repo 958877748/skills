@@ -35,16 +35,20 @@ AI 调用 CLI 命令 → 添加/删除任务到 DB
 
 ### Skill 架构
 ```
+skills/schedule/SKILL.md    # 项目中的 Skill 源文件
+         ↓ 启动时自动复制
 .opencode/skills/schedule/SKILL.md
-                    ↓
-           OpenCode 加载 Skill
-                    ↓
-           AI 根据指南调用 CLI 命令
-                    ↓
-           CLI 操作数据库
+         ↓
+OpenCode 加载 Skill
+         ↓
+AI 根据指南调用 CLI 命令
+         ↓
+CLI 操作数据库
 ```
 
-AI 通过 Skill 文档学习如何使用 CLI 命令管理定时任务，无需自定义工具。
+- `skills/` 目录存放 Skill 源文件，会被 Git 追踪
+- 启动时自动复制到 `.opencode/skills/`（在 .gitignore 中）
+- AI 通过 Skill 文档学习如何使用 CLI 命令，无需自定义工具
 
 ## 环境要求
 
@@ -170,10 +174,15 @@ discord-bot/
 ├── db.js             # 数据库操作模块
 ├── mock.js           # Mock 模式支持
 ├── package.json      # 项目配置
-└── .opencode/
-    └── skills/
-        └── schedule/
-            └── SKILL.md   # 定时任务 Skill（AI 指南）
+└── skills/           # Skill 源文件目录
+    └── schedule/
+        └── SKILL.md  # 定时任务 Skill（AI 指南）
+
+# 启动后自动生成（在 .gitignore 中）
+.opencode/
+└── skills/           # 从 skills/ 复制而来
+    └── schedule/
+        └── SKILL.md
 ```
 
 ## 数据库

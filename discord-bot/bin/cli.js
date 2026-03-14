@@ -32,49 +32,47 @@ function saveConfig(config) {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
-// 复制 schedule 工具到 OpenCode 工具目录
-function copyScheduleTool() {
-  const opencodeToolsDir = path.join(process.cwd(), '.opencode', 'tools', 'schedule');
-  const sourceFile = path.join(__dirname, '..', 'tools', 'schedule.js');
-  const targetFile = path.join(opencodeToolsDir, 'index.js');
-  const packageJsonPath = path.join(opencodeToolsDir, 'package.json');
+// 复制 skills 到 OpenCode 目录
+function copySkills() {
+  const sourceDir = path.join(__dirname, '..', 'skills');
+  const targetDir = path.join(process.cwd(), '.opencode', 'skills');
   
   try {
-    // 确保目录存在
-    if (!fs.existsSync(opencodeToolsDir)) {
-      fs.mkdirSync(opencodeToolsDir, { recursive: true });
+    // 检查源目录是否存在
+    if (!fs.existsSync(sourceDir)) {
+      return;
     }
     
-    // 复制工具文件
-    if (fs.existsSync(sourceFile)) {
-      fs.copyFileSync(sourceFile, targetFile);
-      
-      // 创建 package.json（如果不存在）
-      if (!fs.existsSync(packageJsonPath)) {
-        const packageJson = {
-          name: "dm-bot-schedule-tool",
-          version: "1.0.0",
-          main: "index.js",
-          dependencies: {
-            "@opencode-ai/plugin": "^0.x",
-            "better-sqlite3": "^11.x",
-            "cron-parser": "^4.x"
-          }
-        };
-        fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    // 递归复制目录
+    function copyDir(src, dest) {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
       }
       
-      console.log('[schedule] 工具已同步到 OpenCode');
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        
+        if (entry.isDirectory()) {
+          copyDir(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
     }
+    
+    copyDir(sourceDir, targetDir);
+    console.log('[skills] 已同步到 .opencode/skills');
   } catch (error) {
-    console.warn('[schedule] 同步工具失败:', error.message);
+    console.warn('[skills] 同步失败:', error.message);
   }
 }
 
 // 启动机器人的逻辑
 async function doStart(options = {}) {
-  // 先复制工具
-  copyScheduleTool();
+  // 先复制 skills 到 .opencode/skills
+  copySkills();
   
   // Mock 模式不需要 token
   if (options.mock) {
