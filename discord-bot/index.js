@@ -88,7 +88,25 @@ client.on('messageCreate', async message => {
         await message.reply(`任务 ${taskId} 已删除。`);
       }
     } else if (command === 'help') {
-      await message.reply('可用命令：\n!reset - 清空队列\n!status - 查看状态\n!tasks - 查看定时任务\n!cancel <id> - 删除定时任务\n!help - 显示帮助\n\n直接发送消息，我会帮你处理。');
+      await message.reply('可用命令：\n!reset - 清空队列\n!status - 查看状态\n!tasks - 查看定时任务\n!cancel <id> - 删除定时任务\n!gold - 设置每日金价提醒（每天8点）\n!help - 显示帮助\n\n直接发送消息，我会帮你处理。');
+    } else if (command === 'gold') {
+      const cronExpression = '0 8 * * *';
+      const taskContent = '给我最新的金价信息';
+      const nextRunTime = calculateNextRunTime(cronExpression);
+      
+      if (!nextRunTime) {
+        await message.reply('创建定时任务失败：无效的cron表达式');
+      } else {
+        db.addScheduledTask(
+          message.author.id,
+          message.channel.id,
+          taskContent,
+          cronExpression,
+          nextRunTime,
+          true
+        );
+        await message.reply(`已设置每日金价提醒！\n每天早上8点会自动给你发送金价信息。\n使用 !tasks 查看任务，!cancel <id> 删除任务`);
+      }
     } else {
       await message.reply('未知命令。输入 !help 查看可用命令。');
     }
@@ -207,7 +225,7 @@ function runOpencode(prompt, sessionId = null) {
   return new Promise((resolve, reject) => {
     let finished = false;
     
-    const args = ['run', '--format', 'json', prompt];
+    const args = ['run', '--format', 'json', '--tools', path.join(process.cwd(), '.opencode', 'tools'), prompt];
     if (sessionId) args.push('--session', sessionId);
     
     const childProcess = spawn('opencode', args, {
@@ -253,9 +271,12 @@ function runOpencode(prompt, sessionId = null) {
 
 client.on('error', error => console.error('机器人发生错误：', error));
 
+// 获取 token：优先配置文件，其次环境变量
+const TOKEN = config.token || process.env.DISCORD_TOKEN;
+
 // 启动机器人
 function startBot() {
-  return client.login(process.env.DISCORD_TOKEN)
+  return client.login(TOKEN)
     .then(() => {
       console.log('正在登录 Discord...');
       return client;

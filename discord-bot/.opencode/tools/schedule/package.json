@@ -1,0 +1,10 @@
+{
+  "name": "dm-bot-schedule-tool",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@opencode-ai/plugin": "^0.x",
+    "better-sqlite3": "^11.x",
+    "cron-parser": "^4.x"
+  }
+}
