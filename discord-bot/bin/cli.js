@@ -76,6 +76,13 @@ async function doStart(options = {}) {
   // 先复制工具
   copyScheduleTool();
   
+  // Mock 模式不需要 token
+  if (options.mock) {
+    console.log('[Mock] 使用模拟模式，跳过 token 验证');
+    await startBot({ mock: true });
+    return;
+  }
+  
   let token = options.token;
   
   // 优先级: 1. 命令行参数 2. 环境变量 3. 配置文件
@@ -112,6 +119,8 @@ async function doStart(options = {}) {
     console.log('');
     console.log('或者你可以使用以下方式直接设置:');
     console.log('  dm-bot --token <your-token>');
+    console.log('');
+    console.log('提示: 使用 --mock 参数可以在没有 token 的情况下启动模拟模式');
     process.exit(1);
   }
   
@@ -127,6 +136,7 @@ program
   .description('Discord DM Bot CLI with OpenCode integration')
   .version('1.0.0')
   .option('-t, --token <token>', 'Discord Bot Token')
+  .option('-m, --mock', '使用模拟模式（无需 Discord 连接，用于本地测试）')
   .action(async (options) => {
     // 默认执行启动
     await doStart(options);
@@ -136,6 +146,7 @@ program
   .command('start')
   .description('启动 Discord 机器人（默认命令）')
   .option('-t, --token <token>', 'Discord Bot Token')
+  .option('-m, --mock', '使用模拟模式')
   .action(async (options) => {
     await doStart(options);
   });
@@ -171,5 +182,77 @@ program
     resetDatabase();
     console.log('数据库已重置');
   });
+
+// Schedule 命令
+const scheduleCmd = program
+  .command('schedule')
+  .description('定时任务管理');
+
+scheduleCmd
+  .command('create <cron> <content> [repeat]')
+  .description('创建定时任务')
+  .action((cron, content, repeat) => {
+    const { addScheduledTask } = require('../db');
+    const cronParser = require('cron-parser');
+    
+    // 计算下次执行时间
+    let nextRunTime;
+    try {
+      const interval = cronParser.CronExpressionParser.parse(cron, { tz: 'Asia/Shanghai' });
+      nextRunTime = formatDateTime(interval.next().toDate());
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, message: `无效的 cron 表达式: ${e.message}` }));
+      process.exit(1);
+    }
+    
+    // 使用默认用户/频道（CLI 模式）
+    const userId = process.env.DISCORD_USER_ID || 'cli-user';
+    const channelId = process.env.DISCORD_CHANNEL_ID || 'cli-channel';
+    const isRepeat = repeat !== 'false';
+    
+    try {
+      const taskId = addScheduledTask(userId, channelId, content, cron, nextRunTime, isRepeat);
+      console.log(JSON.stringify({
+        success: true,
+        message: '定时任务已创建',
+        task: { id: taskId, cron, content, nextRun: nextRunTime, isRepeat }
+      }, null, 2));
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, message: `创建失败: ${e.message}` }));
+    }
+  });
+
+scheduleCmd
+  .command('list')
+  .description('列出所有定时任务')
+  .action(() => {
+    const { getUserTasks } = require('../db');
+    const userId = process.env.DISCORD_USER_ID || 'cli-user';
+    const tasks = getUserTasks(userId);
+    
+    if (tasks.length === 0) {
+      console.log(JSON.stringify({ success: true, message: '暂无定时任务', tasks: [] }));
+    } else {
+      console.log(JSON.stringify({ success: true, tasks }, null, 2));
+    }
+  });
+
+scheduleCmd
+  .command('delete <id>')
+  .description('删除定时任务')
+  .action((id) => {
+    const { deleteTask } = require('../db');
+    try {
+      deleteTask(id);
+      console.log(JSON.stringify({ success: true, message: `任务 ${id} 已删除` }));
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, message: `删除失败: ${e.message}` }));
+    }
+  });
+
+function formatDateTime(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
 
 program.parse();

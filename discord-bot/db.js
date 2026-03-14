@@ -40,6 +40,11 @@ function hasProcessingMessage() {
   return result.count > 0;
 }
 
+function getProcessingMessage() {
+  const stmt = db.prepare("SELECT * FROM message_queue WHERE status = 'processing' LIMIT 1");
+  return stmt.get();
+}
+
 function markAsProcessing(id) {
   const stmt = db.prepare("UPDATE message_queue SET status = 'processing' WHERE id = ?");
   stmt.run(id);
@@ -144,6 +149,7 @@ module.exports = {
   addMessage,
   getPendingMessage,
   hasProcessingMessage,
+  getProcessingMessage,
   markAsProcessing,
   markAsCompleted,
   clearPendingMessages,

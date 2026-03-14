@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const db = require('./db');
+const { MockClient, startInteractiveInput, MOCK_CHANNEL } = require('./mock');
 
 // 加载用户配置
 const userConfigPath = path.join(os.homedir(), '.config', 'discord-bot', 'config.json');
@@ -69,12 +70,14 @@ client.on('messageCreate', async message => {
 });
 
 // 轮询处理消息队列
-function startPolling() {
+function startPolling(botClient = client) {
   setInterval(async () => {
+    console.log(`[轮询] isProcessing: ${isProcessing}, hasProcessingMessage: ${db.hasProcessingMessage()}`);
     if (isProcessing || db.hasProcessingMessage()) return;
     
     const message = db.getPendingMessage();
-    if (message) await processMessage(message);
+    console.log(`[轮询] 取到的消息: ${message ? message.id : 'none'}`);
+    if (message) await processMessage(message, botClient);
   }, config.messagePollInterval);
 }
 
@@ -120,14 +123,14 @@ function formatDateTime(date) {
 
 // 处理单条消息
 // 处理单条消息
-async function processMessage(message) {
+async function processMessage(message, botClient = client) {
   isProcessing = true;
   console.log(`[开始处理] 消息 ID: ${message.id}, 用户: ${message.user_id}`);
   
   try {
     db.markAsProcessing(message.id);
     
-    const channel = await client.channels.fetch(message.channel_id);
+    const channel = await botClient.channels.fetch(message.channel_id);
     if (!channel) throw new Error('无法找到频道');
 
     // 获取用户 session
@@ -136,9 +139,9 @@ async function processMessage(message) {
       console.log(`[使用 Session] ${userSessionId}`);
     }
 
-    // 执行 opencode run
+    // 执行 opencode run，传入用户信息用于工具调用
     console.log(`[执行 opencode] 消息 ID: ${message.id}`);
-    const result = await runOpencode(message.content, userSessionId);
+    const result = await runOpencode(message.content, userSessionId, message.user_id, message.channel_id);
     console.log(`[执行完成] 结果长度: ${result.text.length}`);
     
     // 保存 session
@@ -164,38 +167,96 @@ async function processMessage(message) {
 }
 
 // 调用 opencode run
-function runOpencode(prompt, sessionId = null) {
+function runOpencode(prompt, sessionId = null, userId = null, channelId = null) {
   return new Promise((resolve, reject) => {
     let finished = false;
     
     const args = ['run', '--format', 'json', prompt];
     if (sessionId) args.push('--session', sessionId);
     
-    const childProcess = spawn('opencode', args, {
+    // Windows 上需要通过 cmd 执行 npm 安装的命令
+    const isWin = process.platform === 'win32';
+    const spawnOptions = {
       cwd: process.cwd(),
-      env: { ...process.env, SKILL_PATH: path.join(process.cwd(), '.opencode', 'tools') },
+      env: { 
+        ...process.env, 
+        SKILL_PATH: path.join(process.cwd(), '.opencode', 'tools'),
+        // 传递用户信息给工具
+        DISCORD_USER_ID: userId || '',
+        DISCORD_CHANNEL_ID: channelId || ''
+      },
       stdio: ['ignore', 'pipe', 'pipe']
-    });
+    };
+    
+    let childProcess;
+    console.log(`[调试] 准备执行 opencode: ${args.join(' ')}`);
+    if (isWin) {
+      // Windows: 使用 cmd.exe 执行 opencode
+      childProcess = spawn('cmd.exe', ['/c', 'opencode', ...args], spawnOptions);
+    } else {
+      childProcess = spawn('opencode', args, spawnOptions);
+    }
 
     let stdout = '';
     let stderr = '';
     let newSessionId = sessionId;
 
-    childProcess.stdout.on('data', (data) => { stdout += data.toString(); });
-    childProcess.stderr.on('data', (data) => { stderr += data.toString(); });
+    childProcess.stdout.on('data', (data) => { 
+      stdout += data.toString(); 
+      console.log(`[调试 stdout] ${data.toString().substring(0, 300)}`);
+    });
+    childProcess.stderr.on('data', (data) => { 
+      stderr += data.toString();
+      console.log(`[调试 stderr] ${data.toString().substring(0, 300)}`);
+    });
 
     childProcess.on('close', (code) => {
       if (finished) return;
       finished = true;
       
+      // 打印 stderr 用于调试
+      if (stderr.trim()) {
+        console.log(`[调试] stderr: ${stderr}`);
+      }
+      
+      // 打印 stdout 用于调试
+      console.log(`[调试] stdout 长度: ${stdout.length}, exit code: ${code}`);
+      if (stdout.trim()) {
+        const stdoutPreview = stdout.substring(0, 1000);
+        console.log(`[调试] stdout: ${stdoutPreview}`);
+      }
+      
       if (code === 0) {
         let text = '';
-        for (const line of stdout.trim().split('\n')) {
+        const jsonLines = stdout.trim().split('\n');
+        
+        // 调试：打印所有 JSON 行的类型
+        console.log(`[调试] 收到 ${jsonLines.length} 行 JSON 输出`);
+        
+        for (const line of jsonLines) {
           try {
-            const json = JSON.parse(line);
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+            
+            const json = JSON.parse(trimmedLine);
             if (!newSessionId && json.sessionID) newSessionId = json.sessionID;
-            if (json.type === 'text' && json.part?.text) text += json.part.text;
-          } catch (e) {}
+            
+            // 打印工具调用信息
+            if (json.type === 'tool_use') {
+              console.log(`[调试] 工具调用: ${json.part?.tool}`);
+            }
+            
+            if (json.type === 'text' && json.part?.text) {
+              console.log(`[调试] 文本输出: ${JSON.stringify(json.part.text).substring(0, 100)}`);
+              text += json.part.text;
+            }
+          } catch (e) {
+            // 非 JSON 行，可能是直接输出
+            if (line.includes('你好') || line.includes('Hello') || line.includes('hello')) {
+              console.log(`[调试] 捕获到直接输出: ${line.substring(0, 100)}`);
+              text = line.trim();
+            }
+          }
         }
         resolve({ text: text || '处理完成', sessionId: newSessionId });
       } else {
@@ -204,6 +265,7 @@ function runOpencode(prompt, sessionId = null) {
     });
 
     childProcess.on('error', (error) => {
+      console.log(`[调试] opencode 进程错误: ${error.message}`);
       if (!finished) {
         finished = true;
         reject(new Error(`执行opencode失败: ${error.message}`));
@@ -217,8 +279,20 @@ client.on('error', error => console.error('机器人发生错误：', error));
 // 获取 token：优先配置文件，其次环境变量
 const TOKEN = config.token || process.env.DISCORD_TOKEN;
 
+// 是否为 mock 模式
+let isMockMode = false;
+
 // 启动机器人
-function startBot() {
+function startBot(options = {}) {
+  // 支持 options.mock 为 true/'non-interactive'
+  const mockValue = options.mock;
+  isMockMode = mockValue === true ? true : (mockValue === 'non-interactive' ? 'non-interactive' : false);
+  
+  if (isMockMode) {
+    console.log('[Mock] 使用模拟模式启动...');
+    return startMockBot();
+  }
+  
   return client.login(TOKEN)
     .then(() => {
       console.log('正在登录 Discord...');
@@ -228,6 +302,40 @@ function startBot() {
       console.error('登录失败：', error);
       throw error;
     });
+}
+
+// 启动模拟机器人
+async function startMockBot() {
+  const mockClient = new MockClient();
+  
+  // 模拟 clientReady 事件
+  console.log(`[Mock] 机器人已上线！登录身份：MockBot`);
+  
+  // 清空未完成的消息
+  db.clearPendingMessages();
+  isProcessing = false;
+  
+  // 启动消息队列轮询（使用模拟客户端）
+  startPolling(mockClient);
+  
+  // 启动定时任务检查
+  startScheduledTaskChecker();
+  
+  // 启动交互式输入（仅在交互模式下）
+  startInteractiveInput(async (message) => {
+    // 模拟 messageCreate 事件处理
+    if (message.author.bot) return;
+    if (message.guild) return;
+    
+    try {
+      const msgId = db.addMessage(message.author.id, MOCK_CHANNEL.id, message.content);
+      console.log(`[Mock] 消息已存入队列 ID: ${msgId}`);
+    } catch (error) {
+      console.error('[Mock] 存入消息失败:', error);
+    }
+  }, isMockMode !== 'non-interactive');  // 非交互模式下不启动 readline
+  
+  return mockClient;
 }
 
 module.exports = { startBot };
