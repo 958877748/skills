@@ -32,8 +32,50 @@ function saveConfig(config) {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
+// 复制 schedule 工具到 OpenCode 工具目录
+function copyScheduleTool() {
+  const opencodeToolsDir = path.join(process.cwd(), '.opencode', 'tools', 'schedule');
+  const sourceFile = path.join(__dirname, '..', 'tools', 'schedule.js');
+  const targetFile = path.join(opencodeToolsDir, 'index.js');
+  const packageJsonPath = path.join(opencodeToolsDir, 'package.json');
+  
+  try {
+    // 确保目录存在
+    if (!fs.existsSync(opencodeToolsDir)) {
+      fs.mkdirSync(opencodeToolsDir, { recursive: true });
+    }
+    
+    // 复制工具文件
+    if (fs.existsSync(sourceFile)) {
+      fs.copyFileSync(sourceFile, targetFile);
+      
+      // 创建 package.json（如果不存在）
+      if (!fs.existsSync(packageJsonPath)) {
+        const packageJson = {
+          name: "dm-bot-schedule-tool",
+          version: "1.0.0",
+          main: "index.js",
+          dependencies: {
+            "@opencode-ai/plugin": "^0.x",
+            "better-sqlite3": "^11.x",
+            "cron-parser": "^4.x"
+          }
+        };
+        fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+      }
+      
+      console.log('[schedule] 工具已同步到 OpenCode');
+    }
+  } catch (error) {
+    console.warn('[schedule] 同步工具失败:', error.message);
+  }
+}
+
 // 启动机器人的逻辑
 async function doStart(options = {}) {
+  // 先复制工具
+  copyScheduleTool();
+  
   let token = options.token;
   
   // 优先级: 1. 命令行参数 2. 环境变量 3. 配置文件

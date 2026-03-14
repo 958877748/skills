@@ -7,6 +7,9 @@ const db = new Database(dbPath);
 // 启用 WAL 模式避免锁定问题
 db.pragma('journal_mode = WAL');
 
+// 设置忙等待超时为 5 秒，避免并发冲突
+db.pragma('busy_timeout = 5000');
+
 // 创建表
 db.exec(`
   CREATE TABLE IF NOT EXISTS message_queue (

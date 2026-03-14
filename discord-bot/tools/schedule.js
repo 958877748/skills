@@ -24,36 +24,9 @@ const config = {
 const dbPath = path.join(process.cwd(), ".discord-bot.db");
 const db = new Database(dbPath);
 
-// 解析时间描述为 cron 表达式
-function parseTimeToCron(timeDescription) {
-  // 匹配 "每天 8点", "每天 8:00"
-  const dailyMatch = timeDescription.match(/每天\s*(\d{1,2})(?::(\d{2}))?/);
-  if (dailyMatch) {
-    const hour = dailyMatch[1].padStart(2, "0");
-    const minute = (dailyMatch[2] || "0").padStart(2, "0");
-    return `${minute} ${hour} * * *`;
-  }
-
-  // 匹配 "每周一 8点"
-  const weeklyMatch = timeDescription.match(/每周([一二三四五六日])\s*(\d{1,2})(?::(\d{2}))?/);
-  if (weeklyMatch) {
-    const dayMap = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 0 };
-    const day = dayMap[weeklyMatch[1]];
-    const hour = weeklyMatch[2].padStart(2, "0");
-    const minute = (weeklyMatch[3] || "0").padStart(2, "0");
-    return `${minute} ${hour} * * ${day}`;
-  }
-
-  // 匹配具体时间 "8:00", "09:30"
-  const timeMatch = timeDescription.match(/(\d{1,2}):(\d{2})/);
-  if (timeMatch) {
-    const hour = timeMatch[1].padStart(2, "0");
-    const minute = timeMatch[2].padStart(2, "0");
-    return `${minute} ${hour} * * *`;
-  }
-
-  return null;
-}
+// 启用 WAL 模式和忙等待超时，避免并发冲突
+db.pragma("journal_mode = WAL");
+db.pragma("busy_timeout = 5000");
 
 // 使用 cron-parser 计算下次执行时间
 function calculateNextRunTime(cron) {
@@ -62,7 +35,6 @@ function calculateNextRunTime(cron) {
       tz: config.timezone,
     });
     const next = interval.next().toDate();
-    // 格式化为本地时间字符串 (YYYY-MM-DD HH:mm:ss)
     return formatDateTime(next);
   } catch (error) {
     console.error("[schedule] 解析 cron 失败:", error.message);
@@ -80,36 +52,31 @@ module.exports = {
   create: tool({
     description: "创建一个定时任务",
     args: {
-      time_description: tool.schema.string().describe("时间描述，如 '每天 8点', '每周一 9点', '14:30'"),
+      cron_expression: tool.schema.string().describe("cron 表达式，如 '0 8 * * *' (每天8点)"),
       task_content: tool.schema.string().describe("任务内容，如 '给我最新的金价信息'"),
+      is_repeat: tool.schema.boolean().describe("是否重复执行（true=每天/每周等循环，false=只执行一次）"),
       user_id: tool.schema.string().describe("用户ID"),
       channel_id: tool.schema.string().describe("频道ID"),
     },
     async execute(args) {
-      const { time_description, task_content, user_id, channel_id } = args;
+      const { cron_expression, task_content, is_repeat, user_id, channel_id } = args;
 
-      const cron = parseTimeToCron(time_description);
-      if (!cron) {
-        return { success: false, message: `无法解析时间: ${time_description}` };
-      }
-
-      const nextRunTime = calculateNextRunTime(cron);
+      // 验证 cron 表达式并计算下次执行时间
+      const nextRunTime = calculateNextRunTime(cron_expression);
       if (!nextRunTime) {
-        return { success: false, message: `无法计算下次执行时间` };
+        return { success: false, message: `无效的 cron 表达式: ${cron_expression}` };
       }
-
-      const isRepeat = time_description.includes("每");
 
       try {
         const stmt = db.prepare(`
           INSERT INTO scheduled_tasks (user_id, channel_id, task_content, cron_expression, next_run_time, is_repeat)
           VALUES (?, ?, ?, ?, ?, ?)
         `);
-        const result = stmt.run(user_id, channelId, taskContent, cron, nextRunTime, isRepeat ? 1 : 0);
+        const result = stmt.run(user_id, channel_id, task_content, cron_expression, nextRunTime, is_repeat ? 1 : 0);
 
         return {
           success: true,
-          message: `定时任务已创建！\n任务ID: ${result.lastInsertRowid}\n时间: ${time_description}\n内容: ${task_content}\n下次执行: ${nextRunTime} (${config.timezone})`,
+          message: `定时任务已创建！\n任务ID: ${result.lastInsertRowid}\ncron: ${cron_expression}\n内容: ${task_content}\n下次执行: ${nextRunTime} (${config.timezone})`,
           task_id: result.lastInsertRowid
         };
       } catch (error) {
