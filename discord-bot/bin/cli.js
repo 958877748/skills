@@ -51,7 +51,10 @@ async function doStart(options = {}) {
     // 生成配置文件模板
     const configTemplate = {
       token: "YOUR_DISCORD_BOT_TOKEN_HERE",
-      description: "请将上面的 token 替换为你的 Discord Bot Token"
+      description: "请将上面的 token 替换为你的 Discord Bot Token",
+      timezone: "Asia/Shanghai",
+      scheduleCheckInterval: 60000,
+      messagePollInterval: 2000
     };
     saveConfig(configTemplate);
     

@@ -1,7 +1,30 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { spawn } = require('child_process');
+const cronParser = require('cron-parser');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const db = require('./db');
+
+// 加载用户配置，如果不存在则使用默认配置
+const userConfigPath = path.join(os.homedir(), '.config', 'discord-bot', 'config.json');
+let userConfig = {};
+try {
+  if (fs.existsSync(userConfigPath)) {
+    userConfig = JSON.parse(fs.readFileSync(userConfigPath, 'utf8'));
+  }
+} catch (e) {
+  console.log('[config] 读取用户配置失败，使用默认配置');
+}
+
+// 合并默认配置和用户配置
+const config = {
+  timezone: 'Asia/Shanghai',
+  scheduleCheckInterval: 60000,
+  messagePollInterval: 2000,
+  ...userConfig,
+};
 
 const client = new Client({
   intents: [
@@ -24,6 +47,9 @@ client.once('clientReady', async () => {
   
   // 启动消息队列轮询
   startPolling();
+  
+  // 启动定时任务检查
+  startScheduledTaskChecker();
 });
 
 client.on('messageCreate', async message => {
@@ -43,8 +69,26 @@ client.on('messageCreate', async message => {
     } else if (command === 'status') {
       const processing = db.hasProcessingMessage();
       await message.reply(`状态: ${isProcessing ? '处理中' : '空闲'}\n队列中有处理中消息: ${processing ? '是' : '否'}`);
+    } else if (command === 'tasks') {
+      const tasks = db.getUserTasks(message.author.id);
+      if (tasks.length === 0) {
+        await message.reply('你还没有设置任何定时任务。');
+      } else {
+        const taskList = tasks.map(t => 
+          `${t.id}. ${t.task_content} (${t.is_repeat ? '重复' : '一次性'}) - 下次: ${t.next_run_time}`
+        ).join('\n');
+        await message.reply(`你的定时任务:\n${taskList}`);
+      }
+    } else if (command.startsWith('cancel ')) {
+      const taskId = parseInt(command.split(' ')[1]);
+      if (isNaN(taskId)) {
+        await message.reply('请提供正确的任务ID，如: !cancel 1');
+      } else {
+        db.deleteTask(taskId);
+        await message.reply(`任务 ${taskId} 已删除。`);
+      }
     } else if (command === 'help') {
-      await message.reply('可用命令：\n!reset - 清空队列\n!status - 查看状态\n!help - 显示帮助\n\n直接发送消息，我会帮你处理。');
+      await message.reply('可用命令：\n!reset - 清空队列\n!status - 查看状态\n!tasks - 查看定时任务\n!cancel <id> - 删除定时任务\n!help - 显示帮助\n\n直接发送消息，我会帮你处理。');
     } else {
       await message.reply('未知命令。输入 !help 查看可用命令。');
     }
@@ -69,6 +113,49 @@ function startPolling() {
     const message = db.getPendingMessage();
     if (message) await processMessage(message);
   }, 2000);
+}
+
+// 检查定时任务
+function startScheduledTaskChecker() {
+  setInterval(async () => {
+    const dueTasks = db.getDueTasks();
+    
+    for (const task of dueTasks) {
+      console.log(`[定时任务] 执行任务 ${task.id}: ${task.task_content}`);
+      
+      // 插入消息队列
+      db.addMessage(task.user_id, task.channel_id, task.task_content);
+      
+      // 更新下次执行时间（如果是重复任务）
+      if (task.is_repeat && task.cron_expression) {
+        const nextTime = calculateNextRunTime(task.cron_expression);
+        db.updateNextRunTime(task.id, task.cron_expression, nextTime);
+      } else {
+        // 一次性任务，禁用
+        db.disableTask(task.id);
+      }
+    }
+  }, 60000); // 每分钟检查
+}
+
+// 根据 cron 表达式计算下次执行时间（使用 cron-parser，支持时区）
+function calculateNextRunTime(cron) {
+  try {
+    const interval = cronParser.parseExpression(cron, {
+      tz: config.timezone,
+    });
+    const next = interval.next().toDate();
+    return formatDateTime(next);
+  } catch (error) {
+    console.error('[calculateNextRunTime] 解析 cron 失败:', error.message);
+    return null;
+  }
+}
+
+// 格式化日期时间为字符串
+function formatDateTime(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 // 处理单条消息
@@ -118,7 +205,6 @@ async function processMessage(message) {
 // 调用 opencode run
 function runOpencode(prompt, sessionId = null) {
   return new Promise((resolve, reject) => {
-    const timeout = 120000;
     let finished = false;
     
     const args = ['run', '--format', 'json', prompt];
@@ -162,14 +248,6 @@ function runOpencode(prompt, sessionId = null) {
         reject(new Error(`执行opencode失败: ${error.message}`));
       }
     });
-
-    setTimeout(() => {
-      if (!finished) {
-        finished = true;
-        childProcess.kill('SIGTERM');
-        reject(new Error('处理超时'));
-      }
-    }, timeout);
   });
 }
 

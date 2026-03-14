@@ -1,6 +1,6 @@
 {
   "name": "dm-bot",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Interactive Discord bot with OpenCode integration",
   "main": "index.js",
   "bin": {
@@ -29,8 +29,10 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@opencode-ai/plugin": "^1.2.25",
     "better-sqlite3": "^12.6.2",
     "commander": "^14.0.3",
+    "cron-parser": "^5.5.0",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1"
   },
