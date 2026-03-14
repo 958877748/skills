@@ -31,7 +31,7 @@ db.pragma("busy_timeout = 5000");
 // 使用 cron-parser 计算下次执行时间
 function calculateNextRunTime(cron) {
   try {
-    const interval = cronParser.parseExpression(cron, {
+    const interval = cronParser.CronExpressionParser.parse(cron, {
       tz: config.timezone,
     });
     const next = interval.next().toDate();

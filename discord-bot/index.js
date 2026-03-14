@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 const db = require('./db');
 
-// 加载用户配置，如果不存在则使用默认配置
+// 加载用户配置
 const userConfigPath = path.join(os.homedir(), '.config', 'discord-bot', 'config.json');
 let userConfig = {};
 try {
@@ -18,11 +18,10 @@ try {
   console.log('[config] 读取用户配置失败，使用默认配置');
 }
 
-// 合并默认配置和用户配置
 const config = {
   timezone: 'Asia/Shanghai',
-  scheduleCheckInterval: 60000,
   messagePollInterval: 2000,
+  scheduleCheckInterval: 60000,
   ...userConfig,
 };
 
@@ -58,60 +57,6 @@ client.on('messageCreate', async message => {
 
   // 只处理私聊消息
   if (message.guild) return;
-
-  // 处理命令
-  if (message.content.startsWith('!')) {
-    const command = message.content.slice(1).toLowerCase();
-    
-    if (command === 'reset') {
-      db.clearPendingMessages();
-      await message.reply('队列已清空。');
-    } else if (command === 'status') {
-      const processing = db.hasProcessingMessage();
-      await message.reply(`状态: ${isProcessing ? '处理中' : '空闲'}\n队列中有处理中消息: ${processing ? '是' : '否'}`);
-    } else if (command === 'tasks') {
-      const tasks = db.getUserTasks(message.author.id);
-      if (tasks.length === 0) {
-        await message.reply('你还没有设置任何定时任务。');
-      } else {
-        const taskList = tasks.map(t => 
-          `${t.id}. ${t.task_content} (${t.is_repeat ? '重复' : '一次性'}) - 下次: ${t.next_run_time}`
-        ).join('\n');
-        await message.reply(`你的定时任务:\n${taskList}`);
-      }
-    } else if (command.startsWith('cancel ')) {
-      const taskId = parseInt(command.split(' ')[1]);
-      if (isNaN(taskId)) {
-        await message.reply('请提供正确的任务ID，如: !cancel 1');
-      } else {
-        db.deleteTask(taskId);
-        await message.reply(`任务 ${taskId} 已删除。`);
-      }
-    } else if (command === 'help') {
-      await message.reply('可用命令：\n!reset - 清空队列\n!status - 查看状态\n!tasks - 查看定时任务\n!cancel <id> - 删除定时任务\n!gold - 设置每日金价提醒（每天8点）\n!help - 显示帮助\n\n直接发送消息，我会帮你处理。');
-    } else if (command === 'gold') {
-      const cronExpression = '0 8 * * *';
-      const taskContent = '给我最新的金价信息';
-      const nextRunTime = calculateNextRunTime(cronExpression);
-      
-      if (!nextRunTime) {
-        await message.reply('创建定时任务失败：无效的cron表达式');
-      } else {
-        db.addScheduledTask(
-          message.author.id,
-          message.channel.id,
-          taskContent,
-          cronExpression,
-          nextRunTime,
-          true
-        );
-        await message.reply(`已设置每日金价提醒！\n每天早上8点会自动给你发送金价信息。\n使用 !tasks 查看任务，!cancel <id> 删除任务`);
-      }
-    } else {
-      await message.reply('未知命令。输入 !help 查看可用命令。');
-    }
-    return;
-  }
   
   // 将消息存入数据库队列
   try {
@@ -130,10 +75,10 @@ function startPolling() {
     
     const message = db.getPendingMessage();
     if (message) await processMessage(message);
-  }, 2000);
+  }, config.messagePollInterval);
 }
 
-// 检查定时任务
+// 定时任务检查（每分钟）
 function startScheduledTaskChecker() {
   setInterval(async () => {
     const dueTasks = db.getDueTasks();
@@ -153,29 +98,27 @@ function startScheduledTaskChecker() {
         db.disableTask(task.id);
       }
     }
-  }, 60000); // 每分钟检查
+  }, config.scheduleCheckInterval);
 }
 
-// 根据 cron 表达式计算下次执行时间（使用 cron-parser，支持时区）
+// 根据 cron 表达式计算下次执行时间
 function calculateNextRunTime(cron) {
   try {
-    const interval = cronParser.parseExpression(cron, {
-      tz: config.timezone,
-    });
-    const next = interval.next().toDate();
-    return formatDateTime(next);
-  } catch (error) {
-    console.error('[calculateNextRunTime] 解析 cron 失败:', error.message);
+    const interval = cronParser.CronExpressionParser.parse(cron, { tz: config.timezone });
+    return formatDateTime(interval.next().toDate());
+  } catch (e) {
+    console.error('[calculateNextRunTime] 解析 cron 失败:', e.message);
     return null;
   }
 }
 
-// 格式化日期时间为字符串
+// 格式化日期时间
 function formatDateTime(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+// 处理单条消息
 // 处理单条消息
 async function processMessage(message) {
   isProcessing = true;
@@ -225,12 +168,12 @@ function runOpencode(prompt, sessionId = null) {
   return new Promise((resolve, reject) => {
     let finished = false;
     
-    const args = ['run', '--format', 'json', '--tools', path.join(process.cwd(), '.opencode', 'tools'), prompt];
+    const args = ['run', '--format', 'json', prompt];
     if (sessionId) args.push('--session', sessionId);
     
     const childProcess = spawn('opencode', args, {
       cwd: process.cwd(),
-      env: process.env,
+      env: { ...process.env, SKILL_PATH: path.join(process.cwd(), '.opencode', 'tools') },
       stdio: ['ignore', 'pipe', 'pipe']
     });
 

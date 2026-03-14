@@ -59,6 +59,7 @@ Thumbs.db
 .settings/
 *.sublime-workspace
 *.sublime-project
+.opencode/
 
 # Temporary files
 tmp/
