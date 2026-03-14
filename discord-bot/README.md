@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Discord.js](https://img.shields.io/badge/discord.js-v14.14.1-blue.svg)](https://discord.js.org/)
 
-一个基于 Discord.js 的交互式机器人，集成 OpenCode 功能，支持私聊对话和消息队列管理。
+一个基于 Discord.js 的交互式机器人，集成 OpenCode 功能，支持私聊对话、定时任务和本地测试。
 
 ## 系统架构
 
@@ -24,19 +24,27 @@
 
 ### 定时任务流程
 ```
-OpenCode 工具 → 添加/删除任务到 DB
+AI 调用 CLI 命令 → 添加/删除任务到 DB
                       ↓
            每分钟检查任务是否到期
                       ↓
            到期任务 → 插入消息队列
                       ↓
-           2秒后轮询取出 → OpenCode 处理
-                      ↓
-           处理结果发送给用户
+           OpenCode 处理 → 发送给用户
 ```
 
-- 通过 OpenCode 工具让 AI 可以管理定时任务
-- 任务存储在 SQLite 中，支持 cron 表达式
+### Skill 架构
+```
+.opencode/skills/schedule/SKILL.md
+                    ↓
+           OpenCode 加载 Skill
+                    ↓
+           AI 根据指南调用 CLI 命令
+                    ↓
+           CLI 操作数据库
+```
+
+AI 通过 Skill 文档学习如何使用 CLI 命令管理定时任务，无需自定义工具。
 
 ## 环境要求
 
@@ -59,11 +67,14 @@ cd discord-bot
 npm install
 ```
 
-### 3. 配置环境变量
+### 3. 配置 Token
 
 ```bash
-cp .env.example .env
-# 编辑 .env 文件，填入你的 Discord 机器人令牌
+# 方式一：使用 CLI 配置
+dm-bot config --token <your-token>
+
+# 方式二：环境变量
+export DISCORD_TOKEN=<your-token>
 ```
 
 ### 4. 获取 Discord 机器人令牌
@@ -73,19 +84,9 @@ cp .env.example .env
 3. 进入 "Bot" 标签页，点击 "Add Bot"
 4. 在 "Privileged Gateway Intents" 中启用:
    - MESSAGE CONTENT INTENT
-5. 复制 Bot Token 到 `.env` 文件
+5. 复制 Bot Token
 
-### 5. 邀请机器人到服务器
-
-1. 在 Developer Portal 中，进入 "OAuth2" -> "URL Generator"
-2. 在 SCOPES 中选择 `bot`
-3. 在 BOT PERMISSIONS 中选择:
-   - Send Messages
-   - Read Message History
-   - Read Messages/View Channels
-4. 复制生成的 URL 并在浏览器中打开，选择要添加的服务器
-
-### 6. 启动机器人
+### 5. 启动机器人
 
 ```bash
 # 生产环境
@@ -93,38 +94,86 @@ npm start
 
 # 开发环境（带自动重启）
 npm run dev
+
+# Mock 模式（本地测试，无需 Discord 连接）
+dm-bot --mock
 ```
 
-或者使用脚本:
+## CLI 命令
 
 ```bash
-# Linux/Mac
-chmod +x start.sh
-./start.sh
+# 启动机器人
+dm-bot start [--token <token>] [--mock]
 
-# Windows
-start.bat
+# 配置
+dm-bot config --token <token>
+
+# 重置数据库
+dm-bot reset
+
+# 定时任务管理
+dm-bot schedule create "<cron>" "<content>" [repeat]
+dm-bot schedule list
+dm-bot schedule delete <id>
 ```
 
-## 使用方法
+### Schedule 命令示例
 
-1. 向机器人发送私信
-2. 机器人自动存入消息队列
-3. 每 2 秒取出一条交给 OpenCode 处理
-4. 处理完成后自动回复用户
+```bash
+# 创建每天8点的提醒
+dm-bot schedule create "0 8 * * *" "提醒喝水" true
+
+# 创建工作日9:30的提醒
+dm-bot schedule create "30 9 * * 1-5" "开会" true
+
+# 创建一次性提醒
+dm-bot schedule create "0 10 1 * *" "月初提醒" false
+
+# 查看所有任务
+dm-bot schedule list
+
+# 删除任务
+dm-bot schedule delete 1
+```
+
+### Cron 表达式
+
+```
+┌───────────── 分钟 (0-59)
+│ ┌───────────── 小时 (0-23)
+│ │ ┌───────────── 日 (1-31)
+│ │ │ ┌───────────── 月 (1-12)
+│ │ │ │ ┌───────────── 星期 (0-6, 0=周日)
+│ │ │ │ │
+* * * * *
+```
+
+## Mock 模式
+
+用于本地测试，无需真实的 Discord 连接：
+
+```bash
+# 交互式 Mock 模式
+dm-bot --mock
+
+# 非交互式 Mock 模式（代码调用）
+const { startBot } = require('./index');
+await startBot({ mock: 'non-interactive' });
+```
 
 ## 项目结构
 
 ```
 discord-bot/
+├── bin/cli.js        # CLI 入口
 ├── index.js          # 主入口文件
 ├── db.js             # 数据库操作模块
-├── .env.example      # 环境变量示例
-├── .gitignore        # Git 忽略配置
+├── mock.js           # Mock 模式支持
 ├── package.json      # 项目配置
-├── start.sh          # Linux/Mac 启动脚本
-├── start.bat         # Windows 启动脚本
-└── README.md         # 项目说明
+└── .opencode/
+    └── skills/
+        └── schedule/
+            └── SKILL.md   # 定时任务 Skill（AI 指南）
 ```
 
 ## 数据库
@@ -132,6 +181,7 @@ discord-bot/
 使用 SQLite 存储数据:
 - `message_queue` - 消息队列表
 - `user_sessions` - 用户 Session 表（对话上下文）
+- `scheduled_tasks` - 定时任务表
 
 数据库文件会自动创建，无需手动初始化。
 
@@ -141,17 +191,6 @@ discord-bot/
 - 确保 OpenCode CLI 已安装并可用
 - 不要将 `.env` 文件提交到版本控制
 - 数据库文件 (`*.db`) 不会被 Git 追踪
-
-## 故障排除
-
-### 机器人不响应消息
-- 检查 Bot Token 是否正确
-- 确认 MESSAGE CONTENT INTENT 已启用
-- 查看控制台是否有错误信息
-
-### OpenCode 执行失败
-- 确保 OpenCode CLI 已安装: `opencode --version`
-- 检查 opencode 是否在系统 PATH 中
 
 ## 许可证
 
