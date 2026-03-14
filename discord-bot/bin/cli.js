@@ -34,36 +34,46 @@ function saveConfig(config) {
 
 // 复制 skills 到 OpenCode 目录
 function copySkills() {
-  const sourceDir = path.join(__dirname, '..', 'skills');
-  const targetDir = path.join(process.cwd(), '.opencode', 'skills');
+  const targetBaseDir = path.join(process.cwd(), '.opencode', 'skills');
   
   try {
-    // 检查源目录是否存在
-    if (!fs.existsSync(sourceDir)) {
+    // 查找根目录下的所有 SKILL.md 文件
+    const rootDir = path.join(__dirname, '..');
+    const skillFile = path.join(rootDir, 'SKILL.md');
+    
+    if (!fs.existsSync(skillFile)) {
       return;
     }
     
-    // 递归复制目录
-    function copyDir(src, dest) {
-      if (!fs.existsSync(dest)) {
-        fs.mkdirSync(dest, { recursive: true });
-      }
-      
-      const entries = fs.readdirSync(src, { withFileTypes: true });
-      for (const entry of entries) {
-        const srcPath = path.join(src, entry.name);
-        const destPath = path.join(dest, entry.name);
-        
-        if (entry.isDirectory()) {
-          copyDir(srcPath, destPath);
-        } else {
-          fs.copyFileSync(srcPath, destPath);
-        }
-      }
+    // 读取 SKILL.md 内容，提取 name 字段
+    const content = fs.readFileSync(skillFile, 'utf8');
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    
+    if (!frontmatterMatch) {
+      console.warn('[skills] SKILL.md 缺少 frontmatter');
+      return;
     }
     
-    copyDir(sourceDir, targetDir);
-    console.log('[skills] 已同步到 .opencode/skills');
+    // 解析 frontmatter 获取 name
+    const frontmatter = frontmatterMatch[1];
+    const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
+    
+    if (!nameMatch) {
+      console.warn('[skills] SKILL.md 缺少 name 字段');
+      return;
+    }
+    
+    const skillName = nameMatch[1].trim();
+    const targetDir = path.join(targetBaseDir, skillName);
+    
+    // 创建目标目录并复制文件
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    
+    const targetFile = path.join(targetDir, 'SKILL.md');
+    fs.copyFileSync(skillFile, targetFile);
+    console.log(`[skills] 已同步到 .opencode/skills/${skillName}/`);
   } catch (error) {
     console.warn('[skills] 同步失败:', error.message);
   }
@@ -146,7 +156,8 @@ program
   .option('-t, --token <token>', 'Discord Bot Token')
   .option('-m, --mock', '使用模拟模式')
   .action(async (options) => {
-    await doStart(options);
+    // 合并全局选项
+    await doStart({ ...program.opts(), ...options });
   });
 
 program

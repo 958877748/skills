@@ -35,19 +35,19 @@ AI 调用 CLI 命令 → 添加/删除任务到 DB
 
 ### Skill 架构
 ```
-skills/schedule/SKILL.md    # 项目中的 Skill 源文件
-         ↓ 启动时自动复制
+SKILL.md                   # 项目根目录的 Skill 文件
+    ↓ 启动时自动复制（根据 name 字段）
 .opencode/skills/schedule/SKILL.md
-         ↓
+    ↓
 OpenCode 加载 Skill
-         ↓
+    ↓
 AI 根据指南调用 CLI 命令
-         ↓
+    ↓
 CLI 操作数据库
 ```
 
-- `skills/` 目录存放 Skill 源文件，会被 Git 追踪
-- 启动时自动复制到 `.opencode/skills/`（在 .gitignore 中）
+- `SKILL.md` 放在项目根目录，会被 Git 追踪
+- 启动时根据 frontmatter 中的 `name` 字段复制到 `.opencode/skills/{name}/`
 - AI 通过 Skill 文档学习如何使用 CLI 命令，无需自定义工具
 
 ## 环境要求
