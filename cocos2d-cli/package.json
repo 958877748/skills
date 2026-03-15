@@ -1,17 +1,20 @@
 {
   "name": "cocos2d-cli",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "description": "Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes",
-  "main": "bin/cocos2d-cli.js",
+  "type": "module",
+  "main": "dist/bin/cocos2d-cli.js",
   "bin": {
-    "cocos2d-cli": "bin/cocos2d-cli.js"
+    "cocos2d-cli": "dist/bin/cocos2d-cli.js"
   },
   "files": [
-    "bin",
-    "src",
+    "dist",
     "data"
   ],
   "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build",
     "test": "echo \"No tests specified\" && exit 1"
   },
   "keywords": [
@@ -25,9 +28,13 @@
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "typescript": "^5.9.3"
   }
 }
