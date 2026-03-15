@@ -12,3 +12,5 @@ dist/
 
 # 测试文件
 test-add.js
+
+package-lock.json
