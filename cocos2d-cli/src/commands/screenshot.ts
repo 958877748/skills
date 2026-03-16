@@ -35,7 +35,7 @@ export async function run(args: string[]): Promise<void> {
             outputDir: path.dirname(outputPath),
             fullPage: true,
             timeout: 30000,
-            waitTime: 1000
+            waitTime: 3000
         });
         console.log(JSON.stringify({ success: true, outputPath: screenshotPath }));
     } catch (err: any) {
