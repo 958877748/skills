@@ -141,6 +141,34 @@ async function removeDir(dirPath: string, logs?: LogEntry[]): Promise<void> {
     }
 }
 
+async function launchBrowser(addLog: (type: string, text: string, extra?: Record<string, any>) => void) {
+    try {
+        addLog('info', 'Launching Playwright Chromium');
+        const browser = await chromium.launch({
+            headless: true,
+        });
+        addLog('info', 'Browser launched with Playwright Chromium');
+        return browser;
+    } catch (error: any) {
+        const message = String(error?.message || error);
+
+        if (!message.includes("Executable doesn't exist")) {
+            throw error;
+        }
+
+        addLog('warn', 'Playwright Chromium not found, falling back to system Edge');
+
+        const browser = await chromium.launch({
+            channel: 'msedge',
+            headless: true,
+        });
+
+        addLog('info', 'Browser launched with system Edge');
+        return browser;
+    }
+}
+
+
 /**
  * 截图核心函数
  */
@@ -204,9 +232,7 @@ export async function takeScreenshot(userConfig: Partial<ScreenshotConfig> = {})
 
         // 启动浏览器
         addLog('info', 'Launching Browser');
-        browser = await chromium.launch({
-            headless: true
-        });
+        browser = await launchBrowser(addLog);
         addLog('info', 'Browser launched');
 
         const page = await browser.newPage({
