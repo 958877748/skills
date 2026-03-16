@@ -3,15 +3,17 @@ name: bilibili-downloader
 description: Download Bilibili videos. Extracts video and audio streams separately.
 ---
 
-# Bilibili Downloader
+## 目录结构
 
-Download videos from Bilibili (B站) with separate video and audio streams.
+```
+bilibili-downloader/
+├── SKILL.md
+└── download.cjs
+```
 
 ## Usage
 
-```bash
-node scripts/bili_dl.cjs <video_url> <save_directory>
-```
+download.cjs <video_url> <save_directory>
 
 ## Arguments
 
