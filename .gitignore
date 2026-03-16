@@ -6,3 +6,6 @@ __pycache__/
 node_modules
 
 agents-cli/dist/
+
+# Ignore cocos2d-cli package-lock.json
+cocos2d-cli/package-lock.json

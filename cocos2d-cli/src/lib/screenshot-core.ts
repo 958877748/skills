@@ -34,9 +34,9 @@ const DEFAULT_CONFIG: Partial<ScreenshotConfig> = {
 
 // 获取内置资源目录
 function getAssetsDir(): string {
-    // 从项目根目录找 screenshot 资源，而不是从编译后的 dist 目录
-    const projectRoot = process.cwd();
-    return path.join(projectRoot, 'src', 'lib', 'screenshot');
+    // 编译后在 dist/src/lib/screenshot-core.js，data 目录在 dist 同级
+    // 从 dist/src/lib 向上三级到项目根目录，再进入 data/screenshot
+    return path.join(__dirname, '..', '..', '..', 'data', 'screenshot');
 }
 
 // 创建临时工作目录
