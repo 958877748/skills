@@ -29,7 +29,7 @@ const DEFAULT_CONFIG: Partial<ScreenshotConfig> = {
     fullPage: true,
     debugBounds: false,
     timeout: 30000,
-    waitTime: 1000
+    waitTime: 3000
 };
 
 // 获取内置资源目录
