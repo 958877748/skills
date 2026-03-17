@@ -1,6 +1,6 @@
 ---
 name: cocos2d-cli 
-description: Cocos Creator 2.4.x CLI 工具使用规范，用于从 JSON 描述生成场景/预制体、截图预览，以及对场景/预制体中的节点和组件进行增删改查。用户提供 UI 截图并要求生成白盒预制体时，使用该技能分析截图、生成对应 JSON、通过 screenshot 截图与原图反复对比并迭代修正，直到白盒结果无明显差异后再生成 prefab
+description: 用户提供 UI 截图并要求生成白盒预制体时，使用此技能
 ---
 
 # cocos2d-cli
@@ -21,7 +21,7 @@ JSON 描述 → `screenshot` 预览 → 迭代调整 → `create-prefab` 生成
 
 ```bash
 # 预览 JSON 效果
-npx cocos2d-cli screenshot panel.json --output ./screenshots --width 750 --height 1334
+npx cocos2d-cli screenshot panel.json
 
 # 生成预制体
 npx cocos2d-cli create-prefab panel.json assets/Panel.prefab
@@ -29,7 +29,7 @@ npx cocos2d-cli create-prefab panel.json assets/Panel.prefab
 
 ### 1.1 白盒预制体工作循环
 
-当用户输入一张图，并要求“生成白盒预制体”时，必须执行下面这个闭环流程，而不是直接一次性输出 prefab。
+当用户输入一张图，并要求“生成白盒预制体”时，执行下面这个闭环流程，而不是直接一次性输出 prefab。
 
 #### 标准循环
 
@@ -259,7 +259,6 @@ npx cocos2d-cli screenshot <json文件> [选项]
   --width <数值>          视口宽度，默认 750
   --height <数值>         视口高度，默认 1334
   --debug-bounds          叠加节点边界框和名称
-  --wait <毫秒>           截图前等待时间，默认 1000
 
 # 生成预制体
 npx cocos2d-cli create-prefab [JSON文件] <输出.prefab>
@@ -288,4 +287,3 @@ npx cocos2d-cli add-component <文件> <节点路径> <类型>
 4. **坐标计算**：默认锚点在中心，复杂布局建议使用 `anchorX=0`（靠左）或 `anchorX=1`（靠右）配合 `horizontalAlign`
 5. **文本组合规则**：当多个文本共同组成一个视觉整体时，不要把它们当作互相独立的普通 `label` 分散硬摆；应先建立父节点，把这组文本作为一个组合块来组织布局，再分别放置子 `label`
 6. **截图校正规则**：大数字 + 小文字、金额 + 单位、标题 + 状态词这类组合文本，必须通过 `screenshot` 回看实际效果并微调，不能假设一次参数设置就能直接得到正确视觉结果
-7. **截图工具依赖**：需要安装 Playwright 和 Chromium
