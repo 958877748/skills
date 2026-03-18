@@ -1,7 +1,25 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
+const crypto = require('crypto');
 
-const dbPath = path.join(process.cwd(), '.discord-bot.db');
+// 生成数据库文件名（使用路径的MD5哈希）
+function generateDbFilename() {
+  const cwd = process.cwd();
+  const hash = crypto.createHash('md5').update(cwd).digest('hex').substring(0, 16);
+  return `${hash}.db`;
+}
+
+// 配置目录 ~/dm-bot/
+const configDir = path.join(os.homedir(), 'dm-bot');
+
+// 确保配置目录存在
+if (!fs.existsSync(configDir)) {
+  fs.mkdirSync(configDir, { recursive: true });
+}
+
+const dbPath = path.join(configDir, generateDbFilename());
 const db = new Database(dbPath);
 
 // 启用 WAL 模式避免锁定问题
@@ -127,10 +145,20 @@ function disableTask(id) {
 }
 
 function getUserTasks(userId) {
-  const stmt = db.prepare(`
-    SELECT * FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC
-  `);
-  return stmt.all(userId);
+  let stmt;
+  if (userId === 'all') {
+    // 获取所有启用的任务
+    stmt = db.prepare(`
+      SELECT * FROM scheduled_tasks WHERE enabled = 1 ORDER BY created_at DESC
+    `);
+    return stmt.all();
+  } else {
+    // 获取特定用户的任务
+    stmt = db.prepare(`
+      SELECT * FROM scheduled_tasks WHERE user_id = ? ORDER BY created_at DESC
+    `);
+    return stmt.all(userId);
+  }
 }
 
 function deleteTask(id) {

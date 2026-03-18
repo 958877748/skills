@@ -1,15 +1,15 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Partials } = require('discord.js');
 const { spawn } = require('child_process');
-const cronParser = require('cron-parser');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const Bree = require('bree');
 const db = require('./db');
 const { MockClient, startInteractiveInput, MOCK_CHANNEL } = require('./mock');
 
 // 加载用户配置
-const userConfigPath = path.join(os.homedir(), '.config', 'discord-bot', 'config.json');
+const userConfigPath = path.join(os.homedir(), 'dm-bot', 'config.json');
 let userConfig = {};
 try {
   if (fs.existsSync(userConfigPath)) {
@@ -25,6 +25,19 @@ const config = {
   scheduleCheckInterval: 60000,
   ...userConfig,
 };
+
+// 创建Bree调度器实例
+const bree = new Bree({
+  root: false, // 禁用root目录检查
+  logger: console,
+  jobs: [], // 初始为空，后续从数据库加载
+  errorHandler: (error, workerMetadata) => {
+    console.error(`[Bree错误] 任务 ${workerMetadata.name} 执行失败:`, error);
+  },
+  workerMessageHandler: (name, message) => {
+    console.log(`[Bree消息] 任务 ${name}:`, message);
+  }
+});
 
 const client = new Client({
   intents: [
@@ -81,44 +94,131 @@ function startPolling(botClient = client) {
   }, config.messagePollInterval);
 }
 
-// 定时任务检查（每分钟）
+// 定时任务检查（使用Bree）
 function startScheduledTaskChecker() {
-  setInterval(async () => {
-    const dueTasks = db.getDueTasks();
-    
-    for (const task of dueTasks) {
-      console.log(`[定时任务] 执行任务 ${task.id}: ${task.task_content}`);
-      
-      // 插入消息队列
-      db.addMessage(task.user_id, task.channel_id, task.task_content);
-      
-      // 更新下次执行时间（如果是重复任务）
-      if (task.is_repeat && task.cron_expression) {
-        const nextTime = calculateNextRunTime(task.cron_expression);
-        db.updateNextRunTime(task.id, task.cron_expression, nextTime);
-      } else {
-        // 一次性任务，禁用
-        db.disableTask(task.id);
-      }
-    }
-  }, config.scheduleCheckInterval);
+  // 添加Bree事件监听
+  bree.on('worker created', (name) => {
+    console.log(`[Bree] Worker创建: ${name}`);
+  });
+  
+  bree.on('worker deleted', (name) => {
+    console.log(`[Bree] Worker删除: ${name}`);
+  });
+  
+  // 首先从数据库加载任务到Bree
+  loadTasksFromDatabaseToBree().then(() => {
+    // 启动Bree调度器
+    bree.start();
+    console.log('[Bree] 调度器已启动');
+  }).catch(error => {
+    console.error('[Bree] 启动失败:', error);
+    // 如果Bree启动失败，直接退出
+    process.exit(1);
+  });
+  
+  // 每分钟重新同步一次数据库任务到Bree，确保AI添加的任务能及时被调度
+  // AI在其他线程执行CLI命令，会向数据库添加任务，需要定期同步到Bree
+  setInterval(() => {
+    loadTasksFromDatabaseToBree();
+  }, 60 * 1000); // 每分钟同步一次，平衡及时性和数据库负载
 }
 
-// 根据 cron 表达式计算下次执行时间
-function calculateNextRunTime(cron) {
+
+
+
+
+// 从数据库加载任务到Bree
+async function loadTasksFromDatabaseToBree() {
   try {
-    const interval = cronParser.CronExpressionParser.parse(cron, { tz: config.timezone });
-    return formatDateTime(interval.next().toDate());
-  } catch (e) {
-    console.error('[calculateNextRunTime] 解析 cron 失败:', e.message);
-    return null;
+    console.log('[Bree] 开始从数据库加载任务...');
+    
+    // 获取所有启用的任务
+    const tasks = db.getUserTasks('all'); // 这里需要修改db.js以支持获取所有任务
+    
+    // 清空现有的bree任务
+    bree.config.jobs = [];
+    
+    // 将数据库任务转换为bree任务
+    for (const task of tasks) {
+      const jobConfig = {
+        name: `task-${task.id}`,
+        path: path.join(__dirname, 'jobs', 'discord-task.js'),
+        worker: {
+          workerData: {
+            taskId: task.id,
+            userId: task.user_id,
+            channelId: task.channel_id,
+            taskContent: task.task_content,
+            taskType: 'schedule'
+          }
+        }
+      };
+      
+      // 设置调度方式
+      if (task.cron_expression) {
+        // 使用cron表达式
+        jobConfig.cron = task.cron_expression;
+        jobConfig.timezone = config.timezone;
+      } else if (task.next_run_time) {
+        // 设置为特定时间执行（一次性任务）
+        const nextRunDate = new Date(task.next_run_time);
+        if (nextRunDate > new Date()) {
+          jobConfig.date = nextRunDate;
+        } else {
+          // 如果时间已过，跳过此任务
+          console.log(`[Bree] 任务 ${task.id} 的执行时间已过，跳过`);
+          continue;
+        }
+      } else {
+        // 默认立即执行
+        jobConfig.timeout = 0;
+      }
+      
+      // 添加到bree配置
+      bree.config.jobs.push(jobConfig);
+    }
+    
+    console.log(`[Bree] 已加载 ${bree.config.jobs.length} 个任务`);
+    
+    // 注意：Bree的reload方法可能不存在，但jobs配置已更新
+    
+  } catch (error) {
+    console.error('[Bree] 从数据库加载任务失败:', error);
   }
 }
 
-// 格式化日期时间
-function formatDateTime(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+// 添加延迟任务（15分钟后叫醒机器人）
+async function addDelayedTask(userId, channelId, delayMinutes = 15, message = '机器人已叫醒！') {
+  try {
+    const jobName = `delayed-wake-${Date.now()}`;
+    
+    const jobConfig = {
+      name: jobName,
+      path: path.join(__dirname, 'jobs', 'wake-bot.js'),
+      timeout: `${delayMinutes}m`, // 延迟指定分钟数
+      worker: {
+        workerData: {
+          userId,
+          channelId,
+          message,
+          taskType: 'delayed'
+        }
+      }
+    };
+    
+    // 临时添加到bree
+    await bree.add(jobConfig);
+    
+    // 启动这个任务
+    await bree.start(jobName);
+    
+    console.log(`[Bree] 已创建延迟任务: ${delayMinutes}分钟后执行`);
+    
+    return { success: true, jobName };
+  } catch (error) {
+    console.error('[Bree] 创建延迟任务失败:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 // 处理单条消息
