@@ -78,10 +78,10 @@
     "_active": true,
     "_components": [
       {
-        "__id__": 8
+        "__id__": 9
       },
       {
-        "__id__": 9
+        "__id__": 10
       }
     ],
     "_prefab": null,
@@ -245,6 +245,9 @@
       },
       {
         "__id__": 7
+      },
+      {
+        "__id__": 8
       }
     ],
     "_prefab": null,
@@ -332,6 +335,24 @@
     "_enabled": true,
     "target": null,
     "_id": "4eLxsM8/xH+oUyX5QutBE/"
+  },
+  {
+    "__type__": "cc.ScrollView",
+    "_name": "",
+    "_objFlags": 0,
+    "node": {
+      "__id__": 5
+    },
+    "_enabled": true,
+    "horizontal": true,
+    "vertical": true,
+    "inertia": true,
+    "brake": 0.5,
+    "elastic": true,
+    "bounceDuration": 1,
+    "scrollEvents": [],
+    "cancelInnerEvents": true,
+    "_id": "d5TvZUjqhBnKi1o8LysgVI"
   },
   {
     "__type__": "cc.Canvas",

@@ -1,5 +1,5 @@
 const { ccclass, property } = cc._decorator;
-      
+        
 import WebUIBackground from './WebUIBackground';
 import { WebUILayoutEngine } from './layout';
 import { mergeStyle } from './style';
@@ -26,29 +26,61 @@ export default class WebUIRenderer extends cc.Component {
 
     // schema 里所有数值按 360 逻辑像素编写
     // fitWidth 模式下：Canvas 逻辑宽 = designWidth，物理宽 = designWidth × DPR
-    // 所以 scale = (designWidth × DPR) / 360，让布局和字体都工作在物理像素坐标系
     const designSize = cc.view.getDesignResolutionSize();
     const dpr = cc.view.getDevicePixelRatio();
     const physicalWidth = designSize.width * dpr;
-    const physicalHeight = designSize.height * dpr;
 
-    // layoutScale：逻辑坐标换算，用于布局引擎的所有尺寸（padding/margin/width/height 等）
+    // layoutScale：逻辑坐标换算，用于布局引擎所有尺寸（padding/margin/width/height 等）
     const layoutScale = designSize.width / 360;
     // fontScale：物理像素换算，用于字体大小，保证清晰度
     const fontScale = physicalWidth / 360;
 
     this._engine.scale = layoutScale;
 
-    const root = this.createNodeTree(schema, layoutScale, fontScale);
-    this.node.addChild(root);
+    // 1. 创建内容节点树
+    const content = this.createNodeTree(schema, layoutScale, fontScale);
 
-    // 布局容器尺寸用节点逻辑坐标系（设计分辨率），不用物理像素
-    const size = this.node.getContentSize();
-    const width = size.width || designSize.width;
-    const height = size.height || designSize.height;
-    this._engine.layoutTree(root, schema, width, height);
+    // 2. 布局：宽度用逻辑坐标，高度强制 auto 让引擎根据子内容自动计算
+    const logicWidth = designSize.width;
+    const logicHeight = designSize.height;
+    // autoHeight=true：忽略 root schema 的 height:'100%'，按子内容实际高度计算
+    this._engine.layoutTree(content, schema, logicWidth, logicHeight, true);
+    // 布局完成后从节点实际高度读取真实内容高度
+    const contentHeight = content.height;
 
-    this.refreshBackgrounds(root);
+    // 4. 创建 ScrollView，大小 = 屏幕可见区域
+    const scrollNode = new cc.Node('ScrollView');
+    scrollNode.setAnchorPoint(0, 1);
+    scrollNode.setContentSize(logicWidth, logicHeight);
+    scrollNode.setPosition(0, 0);
+
+    const scrollView = scrollNode.addComponent(cc.ScrollView);
+    scrollView.horizontal = false;
+    scrollView.vertical = true;
+    scrollView.inertia = true;
+    scrollView.brake = 0.75;
+    scrollView.elastic = true;
+    scrollView.bounceDuration = 0.23;
+
+    // 5. 创建 view 遮罩节点（ScrollView 可见区域）
+    const viewNode = new cc.Node('view');
+    viewNode.setAnchorPoint(0, 1);
+    viewNode.setContentSize(logicWidth, logicHeight);
+    viewNode.setPosition(0, 0);
+    viewNode.addComponent(cc.Mask);
+    scrollNode.addChild(viewNode);
+
+    // 6. content 挂到 view 下
+    content.setAnchorPoint(0, 1);
+    content.setPosition(0, 0);
+    viewNode.addChild(content);
+
+    // 7. 绑定 ScrollView 的 content
+    scrollView.content = content;
+
+    this.node.addChild(scrollNode);
+
+    this.refreshBackgrounds(content);
   }
 
   private createNodeTree(schema: WebUINodeSchema, layoutScale: number = 1, fontScale: number = 1): cc.Node {

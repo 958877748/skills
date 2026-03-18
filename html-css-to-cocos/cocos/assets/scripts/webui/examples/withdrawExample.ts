@@ -1,5 +1,5 @@
 import { WebUINodeSchema } from '../types';
-
+ 
 export const withdrawExample: WebUINodeSchema = {
   type: 'view',
   id: 'root',

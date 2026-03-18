@@ -1,5 +1,5 @@
 import { clampSize, isAutoValue, mergeStyle, normalizeBoxValue, resolveValue } from './style';
-import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';     
+import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';      
 
 interface ChildLayoutItem {
   node: cc.Node;
@@ -17,12 +17,13 @@ export class WebUILayoutEngine {
   /** 逻辑像素 → 设计分辨率像素的缩放系数，由 WebUIRenderer 注入 */
   scale: number = 1;
 
-  layoutTree(node: cc.Node, schema: WebUINodeSchema, availableWidth: number, availableHeight: number): WebUILayoutResult {
+  layoutTree(node: cc.Node, schema: WebUINodeSchema, availableWidth: number, availableHeight: number, autoHeight: boolean = false): WebUILayoutResult {
     const style = this.scaleStyle(mergeStyle(schema.type, schema.style));
     const padding = normalizeBoxValue(style, 'padding');
 
     let width = resolveValue(style.width, availableWidth);
-    let height = resolveValue(style.height, availableHeight);
+    // autoHeight=true 时忽略 schema 里的 height（如 '100%'），强制按子内容计算
+    let height = autoHeight ? null : resolveValue(style.height, availableHeight);
 
     if (width == null) {
       width = schema.type === 'text'
@@ -34,6 +35,9 @@ export class WebUILayoutEngine {
       if (schema.type === 'text') {
         const shouldConstrain = !!(style.whiteSpace !== 'nowrap' && width > 0);
         height = this.measureTextNode(node, schema, width, shouldConstrain, style).height;
+      } else if (autoHeight) {
+        // 根据子内容实际高度计算
+        height = this.measureViewHeight(node, schema, style, width, availableHeight);
       } else {
         height = availableHeight;
       }
@@ -242,9 +246,14 @@ export class WebUILayoutEngine {
 
 
     if (schema.type === 'text') {
-      const natural = this.measureTextNode(node, schema, 0, false, style);
       if (width == null) {
-        width = natural.width;
+        // column 方向且父容器 alignItems=stretch 时，text 和 CSS 块级元素一样撑满父容器宽度
+        if (parentDirection === 'column' && stretch) {
+          width = Math.max(0, parentWidth - margin.left - margin.right);
+        } else {
+          const natural = this.measureTextNode(node, schema, 0, false, style);
+          width = natural.width;
+        }
       }
       if (height == null) {
         const shouldConstrain = this.shouldConstrainText(style, width, parentWidth);
