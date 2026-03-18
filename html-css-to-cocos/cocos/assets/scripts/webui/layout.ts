@@ -218,6 +218,21 @@ export class WebUILayoutEngine {
   private applyLayoutToItem(item: ChildLayoutItem, x: number, y: number, width: number, height: number) {
     this.applyFrame(item.node, { x, y, width, height });
 
+    // text 节点：布局宽度确定后，如果设置了 textAlign center/right，
+    // 需要将 Label 切换为 RESIZE_HEIGHT 模式，否则 horizontalAlign 在 NONE 模式下不生效。
+    // 但对于没有设置 textAlign（默认 left）的 text，保持 NONE 避免不必要的换行。
+    if (item.schema.type === 'text') {
+      const textAlign = item.style.textAlign || 'left';
+      if (textAlign !== 'left') {
+        const label = item.node.getComponent(cc.Label);
+        if (label) {
+          label.overflow = cc.Label.Overflow.RESIZE_HEIGHT;
+          // @ts-ignore
+          label._forceUpdateRenderData();
+        }
+      }
+    }
+
     if (item.schema.type === 'view' && item.style.display !== 'none') {
       const childPadding = normalizeBoxValue(item.style, 'padding');
       this.layoutChildren(
