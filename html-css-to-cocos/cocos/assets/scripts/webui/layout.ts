@@ -1,5 +1,5 @@
 import { clampSize, isAutoValue, mergeStyle, normalizeBoxValue, resolveValue } from './style';
-import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';       
+import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';        
 
 interface ChildLayoutItem {
   node: cc.Node;
