@@ -1,13 +1,13 @@
 export type WebUIValue = number | string;
-export type WebUIBoxValue = number | [number, number, number, number];
+export type WebUIBoxValue = number | [number, number, number, number]; 
 
 export type WebUINodeType = 'view' | 'text' | 'image';
 export type WebUIDisplay = 'flex' | 'none';
 export type WebUIPosition = 'relative' | 'absolute';
 export type WebUIFlexDirection = 'row' | 'column';
 export type WebUIJustifyContent = 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around' | 'space-evenly';
-export type WebUIAlignItems = 'flex-start' | 'center' | 'flex-end' | 'stretch';
-export type WebUIAlignSelf = 'auto' | 'flex-start' | 'center' | 'flex-end' | 'stretch';
+export type WebUIAlignItems = 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline';
+export type WebUIAlignSelf = 'auto' | 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline';
 export type WebUIFlexWrap = 'nowrap' | 'wrap';
 export type WebUITextAlign = 'left' | 'center' | 'right';
 export type WebUIWhiteSpace = 'normal' | 'nowrap';

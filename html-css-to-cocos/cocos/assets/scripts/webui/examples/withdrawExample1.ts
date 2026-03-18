@@ -1,5 +1,5 @@
 import { WebUINodeSchema } from '../types';
-
+ 
 export const withdrawExample1: WebUINodeSchema = {
   type: 'view',
   id: 'root',
@@ -75,6 +75,7 @@ export const withdrawExample1: WebUINodeSchema = {
         borderRadius: 16, // 目前 engine 实现是全局半径，先用整个圆角代替
         padding: [30, 20, 40, 20],
         flexDirection: 'column',
+        flexGrow: 1,
       },
       children: [
         // 3.1 可提现金额标题
@@ -88,11 +89,11 @@ export const withdrawExample1: WebUINodeSchema = {
           type: 'view',
           style: {
             flexDirection: 'row',
-            alignItems: 'flex-end', // 使用底部对齐保证 ¥ 和数字对齐
+            alignItems: 'baseline',
             marginBottom: 20
           },
           children: [
-            { type: 'text', props: { text: '¥ ' }, style: { fontSize: 32, color: '#000000', fontWeight: 700, marginBottom: 8 } },
+            { type: 'text', props: { text: '¥' }, style: { fontSize: 32, color: '#000000', fontWeight: 700, marginRight: 2 } },
             { type: 'text', props: { text: '40.00' }, style: { fontSize: 56, color: '#000000', fontWeight: 700 } }
           ]
         },
@@ -187,7 +188,15 @@ export const withdrawExample1: WebUINodeSchema = {
             }
           ]
         },
-        // 3.4 邀请按钮
+        // 3.4 占位伸展区：等价模拟 HTML 中按钮的 margin-top: auto
+        {
+          type: 'view',
+          style: {
+            width: '100%',
+            flexGrow: 1,
+          },
+        },
+        // 3.5 邀请按钮
         {
           type: 'view',
           style: {

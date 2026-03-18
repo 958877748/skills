@@ -1,5 +1,5 @@
 import { clampSize, isAutoValue, mergeStyle, normalizeBoxValue, resolveValue } from './style';
-import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';      
+import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';       
 
 interface ChildLayoutItem {
   node: cc.Node;
@@ -36,8 +36,9 @@ export class WebUILayoutEngine {
         const shouldConstrain = this.shouldConstrainText(node, schema, style, width);
         height = this.measureTextNode(node, schema, width, shouldConstrain, style).height;
       } else if (autoHeight) {
-        // 根据子内容实际高度计算
+        // 根据子内容实际高度计算；根节点 autoHeight 场景下至少撑满可视区，才能为 flexGrow 留出可分配空间
         height = this.measureViewHeight(node, schema, style, width, availableHeight);
+        height = Math.max(height, availableHeight);
       } else {
         height = availableHeight;
       }
@@ -143,6 +144,7 @@ export class WebUILayoutEngine {
     offsetY: number,
     gap: number,
   ) {
+    this.applyColumnFlexGrow(items, contentHeight, gap);
     const totalHeight = this.getColumnTotalHeight(items, gap);
     const distribution = this.resolveDistribution(style.justifyContent || 'flex-start', contentHeight, totalHeight, items.length);
     let cursorY = offsetY + distribution.start;
@@ -168,14 +170,19 @@ export class WebUILayoutEngine {
     offsetY: number,
     gap: number,
   ) {
+    this.applyRowFlexGrow(items, contentWidth, gap);
     const totalWidth = this.getRowTotalWidth(items, gap);
     const distribution = this.resolveDistribution(style.justifyContent || 'flex-start', contentWidth, totalWidth, items.length);
+    const baselineAlign = (style.alignItems || 'stretch') === 'baseline';
+    const rowBaseline = baselineAlign ? this.getRowBaseline(items) : 0;
     let cursorX = offsetX + distribution.start;
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       cursorX += item.marginLeft;
-      const y = offsetY + this.resolveCrossAxisY(style, item, contentHeight);
+      const y = baselineAlign
+        ? offsetY + this.resolveBaselineY(item, rowBaseline)
+        : offsetY + this.resolveCrossAxisY(style, item, contentHeight);
       this.applyLayoutToItem(item, cursorX, y, item.width, item.height);
       cursorX += item.width + item.marginRight;
       if (i < items.length - 1) {
@@ -575,6 +582,40 @@ export class WebUILayoutEngine {
     return total;
   }
 
+  private applyColumnFlexGrow(items: ChildLayoutItem[], containerHeight: number, gap: number) {
+    const freeSpace = containerHeight - this.getColumnTotalHeight(items, gap);
+    if (freeSpace <= 0) {
+      return;
+    }
+
+    let totalGrow = 0;
+    for (let i = 0; i < items.length; i++) {
+      totalGrow += Math.max(0, items[i].style.flexGrow || 0);
+    }
+
+    if (totalGrow <= 0) {
+      return;
+    }
+
+    let remainingSpace = freeSpace;
+    let remainingGrow = totalGrow;
+
+    for (let i = 0; i < items.length; i++) {
+      const grow = Math.max(0, items[i].style.flexGrow || 0);
+      if (grow <= 0) {
+        continue;
+      }
+
+      const extra = remainingGrow > grow
+        ? freeSpace * (grow / totalGrow)
+        : remainingSpace;
+
+      items[i].height = Math.max(0, items[i].height + extra);
+      remainingSpace -= extra;
+      remainingGrow -= grow;
+    }
+  }
+
   private getRowTotalWidth(items: ChildLayoutItem[], gap: number): number {
     if (items.length === 0) {
       return 0;
@@ -588,6 +629,40 @@ export class WebUILayoutEngine {
       }
     }
     return total;
+  }
+
+  private applyRowFlexGrow(items: ChildLayoutItem[], containerWidth: number, gap: number) {
+    const freeSpace = containerWidth - this.getRowTotalWidth(items, gap);
+    if (freeSpace <= 0) {
+      return;
+    }
+
+    let totalGrow = 0;
+    for (let i = 0; i < items.length; i++) {
+      totalGrow += Math.max(0, items[i].style.flexGrow || 0);
+    }
+
+    if (totalGrow <= 0) {
+      return;
+    }
+
+    let remainingSpace = freeSpace;
+    let remainingGrow = totalGrow;
+
+    for (let i = 0; i < items.length; i++) {
+      const grow = Math.max(0, items[i].style.flexGrow || 0);
+      if (grow <= 0) {
+        continue;
+      }
+
+      const extra = remainingGrow > grow
+        ? freeSpace * (grow / totalGrow)
+        : remainingSpace;
+
+      items[i].width = Math.max(0, items[i].width + extra);
+      remainingSpace -= extra;
+      remainingGrow -= grow;
+    }
   }
 
   private resolveDistribution(justifyContent: string, containerSize: number, contentSize: number, itemCount: number) {
@@ -630,11 +705,36 @@ export class WebUILayoutEngine {
         return (containerHeight - item.height) * 0.5;
       case 'flex-end':
         return containerHeight - item.height - item.marginBottom;
+      case 'baseline':
       case 'stretch':
       case 'flex-start':
       default:
         return item.marginTop;
     }
+  }
+
+  private getRowBaseline(items: ChildLayoutItem[]) {
+    let baseline = 0;
+    for (let i = 0; i < items.length; i++) {
+      baseline = Math.max(baseline, items[i].marginTop + this.getItemBaseline(items[i]));
+    }
+    return baseline;
+  }
+
+  private resolveBaselineY(item: ChildLayoutItem, rowBaseline: number) {
+    return rowBaseline - this.getItemBaseline(item);
+  }
+
+  private getItemBaseline(item: ChildLayoutItem) {
+    if (item.schema.type === 'text') {
+      const fontSize = item.style.fontSize || item.height || 0;
+      const lineHeight = item.style.lineHeight || item.height || Math.ceil(fontSize * 1.4);
+      const baselineRatio = 0.8;
+      const textBaseline = Math.min(lineHeight, fontSize * baselineRatio + Math.max(0, lineHeight - fontSize) * 0.5);
+      return textBaseline;
+    }
+
+    return item.height;
   }
 
   private resolveAlign(parentStyle: WebUIStyle, childStyle: WebUIStyle) {

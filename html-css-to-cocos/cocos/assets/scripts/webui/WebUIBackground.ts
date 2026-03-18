@@ -18,27 +18,8 @@ export default class WebUIBackground extends cc.Component {
     const height = this.node.height || 1;
     const radius = Math.max(0, Math.min(this.radius, width * 0.5, height * 0.5));
 
-    if (radius <= 0) {
-      graphics.rect(0, -height, width, height);
-      graphics.fill();
-      return;
-    }
-
-    const left = 0;
-    const top = 0;
-    const right = width;
-    const bottom = -height;
-
-    graphics.moveTo(left + radius, top);
-    graphics.lineTo(right - radius, top);
-    graphics.quadraticCurveTo(right, top, right, top - radius);
-    graphics.lineTo(right, bottom + radius);
-    graphics.quadraticCurveTo(right, bottom, right - radius, bottom);
-    graphics.lineTo(left + radius, bottom);
-    graphics.quadraticCurveTo(left, bottom, left, bottom + radius);
-    graphics.lineTo(left, top - radius);
-    graphics.quadraticCurveTo(left, top, left + radius, top);
-    graphics.close();
+    // 直接使用 Cocos 内置的 roundRect，保证圆角与 HTML border-radius 一致
+    graphics.roundRect(0, -height, width, height, radius);
     graphics.fill();
   }
 
