@@ -1,5 +1,5 @@
 const { ccclass, property } = cc._decorator;
-  
+
 @ccclass
 export default class DynamicNodeBuilder extends cc.Component {
 
@@ -12,6 +12,13 @@ export default class DynamicNodeBuilder extends cc.Component {
         // 读取 URL query 参数
         const params = new URLSearchParams(window.location.search);
         const debugBounds = params.get('debugBounds') === 'true';
+        const widthParam = params.get('width');
+
+        // 解析参数为数字，如果无效则使用默认值
+        const width = widthParam ? parseInt(widthParam, 10) : 0;
+        if (width > 0) {
+            cc.view.setDesignResolutionSize(width, 100, cc.ResolutionPolicy.FIXED_WIDTH);
+        }
 
         fetch('data.json')
             .then(response => response.json())
@@ -287,10 +294,10 @@ export default class DynamicNodeBuilder extends cc.Component {
     parseRichTextHAlign(value: string | number): cc.macro.TextAlignment {
         if (typeof value === 'number') return value;
         switch (String(value).toLowerCase()) {
-            case 'left':   return cc.macro.TextAlignment.LEFT;
-            case 'right':  return cc.macro.TextAlignment.RIGHT;
+            case 'left': return cc.macro.TextAlignment.LEFT;
+            case 'right': return cc.macro.TextAlignment.RIGHT;
             case 'center':
-            default:       return cc.macro.TextAlignment.CENTER;
+            default: return cc.macro.TextAlignment.CENTER;
         }
     }
 
@@ -298,10 +305,10 @@ export default class DynamicNodeBuilder extends cc.Component {
     parseHAlign(value: string | number): cc.Label.HorizontalAlign {
         if (typeof value === 'number') return value;
         switch (String(value).toLowerCase()) {
-            case 'left':   return cc.Label.HorizontalAlign.LEFT;
-            case 'right':  return cc.Label.HorizontalAlign.RIGHT;
+            case 'left': return cc.Label.HorizontalAlign.LEFT;
+            case 'right': return cc.Label.HorizontalAlign.RIGHT;
             case 'center':
-            default:       return cc.Label.HorizontalAlign.CENTER;
+            default: return cc.Label.HorizontalAlign.CENTER;
         }
     }
 
@@ -309,10 +316,10 @@ export default class DynamicNodeBuilder extends cc.Component {
     parseVAlign(value: string | number): cc.Label.VerticalAlign {
         if (typeof value === 'number') return value;
         switch (String(value).toLowerCase()) {
-            case 'top':    return cc.Label.VerticalAlign.TOP;
+            case 'top': return cc.Label.VerticalAlign.TOP;
             case 'bottom': return cc.Label.VerticalAlign.BOTTOM;
             case 'center':
-            default:       return cc.Label.VerticalAlign.CENTER;
+            default: return cc.Label.VerticalAlign.CENTER;
         }
     }
 

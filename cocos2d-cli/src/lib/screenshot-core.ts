@@ -257,9 +257,13 @@ export async function takeScreenshot(userConfig: Partial<ScreenshotConfig> = {})
 
         // 加载页面
         addLog('info', 'Loading Page');
-        const pageUrl = config.debugBounds
-            ? `${serverUrl}/index.html?debugBounds=true`
-            : `${serverUrl}/index.html`;
+        const baseUrl = `${serverUrl}/index.html`;
+        const searchParams = new URLSearchParams();
+        searchParams.set('width', config.viewport.width.toString());
+        if (config.debugBounds) {
+            searchParams.set('debugBounds', 'true');
+        }
+        const pageUrl = `${baseUrl}?${searchParams.toString()}`;
         await page.goto(pageUrl, {
             waitUntil: 'networkidle',
             timeout: config.timeout
