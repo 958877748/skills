@@ -33,7 +33,7 @@ export class WebUILayoutEngine {
 
     if (height == null) {
       if (schema.type === 'text') {
-        const shouldConstrain = !!(style.whiteSpace !== 'nowrap' && width > 0);
+        const shouldConstrain = this.shouldConstrainText(node, schema, style, width);
         height = this.measureTextNode(node, schema, width, shouldConstrain, style).height;
       } else if (autoHeight) {
         // 根据子内容实际高度计算
@@ -239,10 +239,11 @@ export class WebUILayoutEngine {
     parentDirection: 'row' | 'column',
     margin: { top: number; right: number; bottom: number; left: number },
     parentStyle: WebUIStyle,
+    allowStretchMeasure: boolean = true,
   ) {
     let width = resolveValue(style.width, parentWidth);
     let height = resolveValue(style.height, parentHeight);
-    const stretch = this.resolveAlign(parentStyle, style) === 'stretch';
+    const stretch = allowStretchMeasure && this.resolveAlign(parentStyle, style) === 'stretch';
 
 
     if (schema.type === 'text') {
@@ -256,7 +257,7 @@ export class WebUILayoutEngine {
         }
       }
       if (height == null) {
-        const shouldConstrain = this.shouldConstrainText(style, width, parentWidth);
+        const shouldConstrain = this.shouldConstrainText(node, schema, style, width);
         const measured = this.measureTextNode(node, schema, width, shouldConstrain, style);
         height = measured.height;
       }
@@ -334,6 +335,7 @@ export class WebUILayoutEngine {
           'row',
           childMargin,
           style,
+          false,
         );
         totalWidth += childMargin.left + measured.width + childMargin.right;
         if (i < children.length - 1) {
@@ -361,6 +363,7 @@ export class WebUILayoutEngine {
         'column',
         childMargin,
         style,
+        false,
       );
       maxWidth = Math.max(maxWidth, childMargin.left + measured.width + childMargin.right);
     }
@@ -402,6 +405,7 @@ export class WebUILayoutEngine {
           'row',
           childMargin,
           style,
+          false,
         );
         maxHeight = Math.max(maxHeight, childMargin.top + measured.height + childMargin.bottom);
       }
@@ -426,6 +430,7 @@ export class WebUILayoutEngine {
         'column',
         childMargin,
         style,
+        false,
       );
       totalHeight += childMargin.top + measured.height + childMargin.bottom;
       if (i < children.length - 1) {
@@ -638,15 +643,16 @@ export class WebUILayoutEngine {
       : (parentStyle.alignItems || 'stretch');
   }
 
-  private shouldConstrainText(style: WebUIStyle, width: number, parentWidth: number) {
+  private shouldConstrainText(node: cc.Node, schema: WebUINodeSchema, style: WebUIStyle, width: number) {
     if (style.whiteSpace === 'nowrap') {
       return false;
     }
 
-    if (width <= 0 || parentWidth <= 0) {
+    if (width <= 0) {
       return false;
     }
 
-    return width >= parentWidth - 1;
+    const naturalWidth = this.measureTextNode(node, schema, 0, false, style).width;
+    return naturalWidth > width + 1;
   }
 }
