@@ -1,7 +1,7 @@
 const { ccclass, property } = cc._decorator;
 
 import WebUIRenderer from './WebUIRenderer';
-import { withdrawExample } from './examples/withdrawExample';
+import { withdrawExample1 } from './examples/withdrawExample1';
 
 @ccclass
 export default class WebUIDemo extends cc.Component {
@@ -19,7 +19,7 @@ export default class WebUIDemo extends cc.Component {
         renderer = host.addComponent(WebUIRenderer);
       }
 
-      renderer.render(withdrawExample);
+      renderer.render(withdrawExample1);
     })
   }
 }

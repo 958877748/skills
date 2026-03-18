@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>提现样例 HTML 版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+            /* 保证最小高度撑满屏幕 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部返回导航 */
+        .nav-bar {
+            width: 100%;
+            padding: 16px 16px 0 16px;
+        }
+        .nav-bar .back {
+            font-size: 32px;
+            color: #333;
+            font-weight: 300;
+            line-height: 1;
+        }
+
+        /* 打款信息区 */
+        .user-info {
+            width: 100%;
+            padding: 16px 20px 20px 20px;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-info-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .user-info-left .title {
+            font-size: 18px;
+            color: #000;
+            font-weight: 700;
+        }
+        .user-info-left .desc {
+            font-size: 13px;
+            color: #999;
+        }
+        .user-info-avatar {
+            width: 48px;
+            height: 48px;
+            /* 原图中是一张风景图，这里使用模拟背景色 */
+            background-color: #1c1c3c;
+            border-radius: 8px;
+            /* 模拟图片存在 */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="%232c2c5c"><rect width="48" height="48"/></svg>');
+            background-size: cover;
+        }
+
+        /* 底部主卡片 */
+        .main-card {
+            background-color: #ffffff;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            padding: 30px 20px 40px 20px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* 撑满剩余屏幕空间 */
+        }
+
+        .amount-title {
+            font-size: 15px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+
+        .amount-value {
+            display: flex;
+            flex-direction: row;
+            align-items: baseline; /* 关键点：基线对齐 */
+            margin-bottom: 20px;
+        }
+        .amount-value .currency {
+            font-size: 32px;
+            color: #000;
+            font-weight: 700;
+            margin-right: 2px;
+        }
+        .amount-value .number {
+            font-size: 56px;
+            color: #000;
+            font-weight: 700;
+        }
+
+        .divider {
+            width: 100%;
+            height: 1px;
+            background-color: #f0f0f0;
+            margin-bottom: 20px;
+        }
+
+        .source-row {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .source-label {
+            font-size: 16px;
+            color: #999;
+        }
+        .source-value {
+            font-size: 16px;
+            color: #333;
+        }
+
+        /* 任务区域卡片 */
+        .task-card {
+            width: 100%;
+            background-color: #f9f9fb;
+            border-radius: 12px;
+            padding: 24px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .timer-capsule {
+            background-color: #eaeaef;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+
+        .task-desc {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            margin-bottom: 24px;
+            font-size: 16px;
+            font-weight: 700;
+            gap: 4px;
+        }
+        .task-desc .black {
+            color: #333;
+        }
+        .task-desc .green {
+            color: #07c160;
+        }
+
+        .add-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 22px;
+            border: 1px dashed #ccc; /* 真实 HTML 支持完美边框 */
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: #ccc;
+            font-weight: 300;
+            line-height: 1; /* 防止 + 号偏移 */
+        }
+
+        /* 底部操作按钮 */
+        .submit-btn {
+            width: 100%;
+            height: 50px;
+            background-color: #07c160;
+            border-radius: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 17px;
+            color: #fff;
+            font-weight: 700;
+            margin-top: auto; /* 推到底部或保持当前间距都可以，目前靠 margin 控制 */
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <div class="nav-bar">
+        <span class="back">‹</span>
+    </div>
+
+    <!-- 打款信息区 -->
+    <div class="user-info">
+        <div class="user-info-left">
+            <span class="title">打款给 viv...</span>
+            <span class="desc">打款方式：微信打款</span>
+        </div>
+        <div class="user-info-avatar"></div>
+    </div>
+
+    <!-- 底部主卡片 -->
+    <div class="main-card">
+        <div class="amount-title">可提现金额</div>
+        
+        <div class="amount-value">
+            <span class="currency">¥</span>
+            <span class="number">40.00</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="source-row">
+            <span class="source-label">打款方</span>
+            <span class="source-value">现金大转盘</span>
+        </div>
+
+        <div class="divider" style="margin-bottom: 30px;"></div>
+
+        <div class="task-card">
+            <div class="timer-capsule">限时04:58.8</div>
+            <div class="task-desc">
+                <span class="black">预计拉1人，</span>
+                <span class="green">即将打款</span>
+            </div>
+            <div class="add-avatar">+</div>
+        </div>
+
+        <div class="submit-btn">邀请好友加速提现</div>
+    </div>
+</body>
+</html>
