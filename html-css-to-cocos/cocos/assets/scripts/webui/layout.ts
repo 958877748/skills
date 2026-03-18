@@ -1,5 +1,5 @@
 import { clampSize, isAutoValue, mergeStyle, normalizeBoxValue, resolveValue } from './style';
-import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';    
+import { WebUILayoutFrame, WebUILayoutResult, WebUINodeSchema, WebUIStyle } from './types';     
 
 interface ChildLayoutItem {
   node: cc.Node;
@@ -14,8 +14,11 @@ interface ChildLayoutItem {
 }
 
 export class WebUILayoutEngine {
+  /** 逻辑像素 → 设计分辨率像素的缩放系数，由 WebUIRenderer 注入 */
+  scale: number = 1;
+
   layoutTree(node: cc.Node, schema: WebUINodeSchema, availableWidth: number, availableHeight: number): WebUILayoutResult {
-    const style = mergeStyle(schema.type, schema.style);
+    const style = this.scaleStyle(mergeStyle(schema.type, schema.style));
     const padding = normalizeBoxValue(style, 'padding');
 
     let width = resolveValue(style.width, availableWidth);
@@ -23,14 +26,14 @@ export class WebUILayoutEngine {
 
     if (width == null) {
       width = schema.type === 'text'
-        ? this.measureTextNode(node, schema, 0, false).width
+        ? this.measureTextNode(node, schema, 0, false, style).width
         : availableWidth;
     }
 
     if (height == null) {
       if (schema.type === 'text') {
-        const shouldConstrain = !!(schema.style && schema.style.whiteSpace !== 'nowrap' && width > 0);
-        height = this.measureTextNode(node, schema, width, shouldConstrain).height;
+        const shouldConstrain = !!(style.whiteSpace !== 'nowrap' && width > 0);
+        height = this.measureTextNode(node, schema, width, shouldConstrain, style).height;
       } else {
         height = availableHeight;
       }
@@ -78,7 +81,7 @@ export class WebUILayoutEngine {
         continue;
       }
 
-      const childStyle = mergeStyle(childSchema.type, childSchema.style);
+      const childStyle = this.scaleStyle(mergeStyle(childSchema.type, childSchema.style));
       if (childStyle.display === 'none') {
         childNode.active = false;
         continue;
@@ -237,14 +240,15 @@ export class WebUILayoutEngine {
     let height = resolveValue(style.height, parentHeight);
     const stretch = this.resolveAlign(parentStyle, style) === 'stretch';
 
+
     if (schema.type === 'text') {
-      const natural = this.measureTextNode(node, schema, 0, false);
+      const natural = this.measureTextNode(node, schema, 0, false, style);
       if (width == null) {
         width = natural.width;
       }
       if (height == null) {
         const shouldConstrain = this.shouldConstrainText(style, width, parentWidth);
-        const measured = this.measureTextNode(node, schema, width, shouldConstrain);
+        const measured = this.measureTextNode(node, schema, width, shouldConstrain, style);
         height = measured.height;
       }
     }
@@ -306,7 +310,7 @@ export class WebUILayoutEngine {
       let totalWidth = padding.left + padding.right;
       for (let i = 0; i < children.length; i++) {
         const child = children[i];
-        const childStyle = mergeStyle(child.type, child.style);
+        const childStyle = this.scaleStyle(mergeStyle(child.type, child.style));
         if (childStyle.position === 'absolute' || childStyle.display === 'none') {
           continue;
         }
@@ -333,7 +337,7 @@ export class WebUILayoutEngine {
     let maxWidth = 0;
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
-      const childStyle = mergeStyle(child.type, child.style);
+      const childStyle = this.scaleStyle(mergeStyle(child.type, child.style));
       if (childStyle.position === 'absolute' || childStyle.display === 'none') {
         continue;
       }
@@ -374,7 +378,7 @@ export class WebUILayoutEngine {
       let maxHeight = 0;
       for (let i = 0; i < children.length; i++) {
         const child = children[i];
-        const childStyle = mergeStyle(child.type, child.style);
+        const childStyle = this.scaleStyle(mergeStyle(child.type, child.style));
         if (childStyle.position === 'absolute' || childStyle.display === 'none') {
           continue;
         }
@@ -398,7 +402,7 @@ export class WebUILayoutEngine {
     let totalHeight = padding.top + padding.bottom;
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
-      const childStyle = mergeStyle(child.type, child.style);
+      const childStyle = this.scaleStyle(mergeStyle(child.type, child.style));
       if (childStyle.position === 'absolute' || childStyle.display === 'none') {
         continue;
       }
@@ -423,17 +427,87 @@ export class WebUILayoutEngine {
     return totalHeight;
   }
 
-  private measureTextNode(node: cc.Node, schema: WebUINodeSchema, availableWidth: number, constrained: boolean): cc.Size {
+  /**
+   * 将 schema 中的逻辑像素值缩放为设计分辨率像素值。
+   * 百分比字符串和 null/undefined 原样返回，只对数字生效。
+   */
+  private s(value: number): number;
+  private s(value: string): string;
+  private s(value: number | string | undefined): number | string | undefined;
+  private s(value: any): any {
+    if (typeof value === 'number') {
+      return value * this.scale;
+    }
+    return value;
+  }
+
+  /** 缩放 WebUIStyle 中所有固定数值字段，返回新的 style 对象 */
+  private scaleStyle(style: WebUIStyle): WebUIStyle {
+    const sc = this.scale;
+    if (sc === 1) {
+      return style;
+    }
+
+    const scaled: WebUIStyle = { ...style };
+
+    // 尺寸
+    if (typeof scaled.width === 'number')     { scaled.width     = scaled.width     * sc; }
+    if (typeof scaled.height === 'number')    { scaled.height    = scaled.height    * sc; }
+    if (typeof scaled.minWidth === 'number')  { scaled.minWidth  = scaled.minWidth  * sc; }
+    if (typeof scaled.minHeight === 'number') { scaled.minHeight = scaled.minHeight * sc; }
+    if (typeof scaled.maxWidth === 'number')  { scaled.maxWidth  = scaled.maxWidth  * sc; }
+    if (typeof scaled.maxHeight === 'number') { scaled.maxHeight = scaled.maxHeight * sc; }
+
+    // 间距
+    if (typeof scaled.gap === 'number') { scaled.gap = scaled.gap * sc; }
+
+    // padding
+    if (typeof scaled.padding === 'number') {
+      scaled.padding = scaled.padding * sc;
+    } else if (Array.isArray(scaled.padding)) {
+      scaled.padding = scaled.padding.map(v => v * sc) as [number, number, number, number];
+    }
+    if (typeof scaled.paddingTop    === 'number') { scaled.paddingTop    = scaled.paddingTop    * sc; }
+    if (typeof scaled.paddingRight  === 'number') { scaled.paddingRight  = scaled.paddingRight  * sc; }
+    if (typeof scaled.paddingBottom === 'number') { scaled.paddingBottom = scaled.paddingBottom * sc; }
+    if (typeof scaled.paddingLeft   === 'number') { scaled.paddingLeft   = scaled.paddingLeft   * sc; }
+
+    // margin
+    if (typeof scaled.margin === 'number') {
+      scaled.margin = scaled.margin * sc;
+    } else if (Array.isArray(scaled.margin)) {
+      scaled.margin = scaled.margin.map(v => v * sc) as [number, number, number, number];
+    }
+    if (typeof scaled.marginTop    === 'number') { scaled.marginTop    = scaled.marginTop    * sc; }
+    if (typeof scaled.marginRight  === 'number') { scaled.marginRight  = scaled.marginRight  * sc; }
+    if (typeof scaled.marginBottom === 'number') { scaled.marginBottom = scaled.marginBottom * sc; }
+    if (typeof scaled.marginLeft   === 'number') { scaled.marginLeft   = scaled.marginLeft   * sc; }
+
+    // 定位
+    if (typeof scaled.left   === 'number') { scaled.left   = scaled.left   * sc; }
+    if (typeof scaled.right  === 'number') { scaled.right  = scaled.right  * sc; }
+    if (typeof scaled.top    === 'number') { scaled.top    = scaled.top    * sc; }
+    if (typeof scaled.bottom === 'number') { scaled.bottom = scaled.bottom * sc; }
+
+    // 字体
+    if (typeof scaled.fontSize    === 'number') { scaled.fontSize    = scaled.fontSize    * sc; }
+    if (typeof scaled.lineHeight  === 'number') { scaled.lineHeight  = scaled.lineHeight  * sc; }
+    if (typeof scaled.borderRadius === 'number') { scaled.borderRadius = scaled.borderRadius * sc; }
+
+    return scaled;
+  }
+
+  private measureTextNode(node: cc.Node, schema: WebUINodeSchema, availableWidth: number, constrained: boolean, scaledStyle?: WebUIStyle): cc.Size {
     const label = node.getComponent(cc.Label);
+    const style = scaledStyle || this.scaleStyle(mergeStyle(schema.type, schema.style));
     if (!label) {
       const text = (schema.props && schema.props.text) || '';
-      const fontSize = (schema.style && schema.style.fontSize) || 20;
+      const fontSize = (style.fontSize) || 20;
       const width = Math.ceil(text.length * fontSize * 0.55);
       const height = Math.ceil(fontSize * 1.4);
       return cc.size(constrained && availableWidth > 0 ? Math.min(width, availableWidth) : width, height);
     }
 
-    const style = schema.style || {};
     label.string = (schema.props && schema.props.text) || '';
     label.fontSize = style.fontSize || label.fontSize;
     label.lineHeight = style.lineHeight || Math.ceil((style.fontSize || label.fontSize || 20) * 1.4);
@@ -449,6 +523,7 @@ export class WebUILayoutEngine {
       node.height = 0;
     }
 
+    // @ts-ignore
     label._forceUpdateRenderData();
 
     let width = node.width;
