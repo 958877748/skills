@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const { startBot } = require('../index');
 const { resetDatabase } = require('../db');
+const { formatDateTime } = require('../utils');
 
 // 标准配置目录: ~/dm-bot/
 const configDir = path.join(os.homedir(), 'dm-bot');
@@ -203,13 +204,11 @@ scheduleCmd
   .action((cron, content, repeat) => {
     const { addScheduledTask } = require('../db');
     const cronParser = require('cron-parser');
-    const Bree = require('bree');
-    const path = require('path');
     
     // 计算下次执行时间
     let nextRunTime;
     try {
-      const interval = cronParser.CronExpressionParser.parse(cron, { tz: 'Asia/Shanghai' });
+      const interval = cronParser.parseExpression(cron, { tz: 'Asia/Shanghai' });
       nextRunTime = formatDateTime(interval.next().toDate());
     } catch (e) {
       console.log(JSON.stringify({ success: false, message: `无效的 cron 表达式: ${e.message}` }));
@@ -225,50 +224,12 @@ scheduleCmd
       // 保存到数据库
       const taskId = addScheduledTask(userId, channelId, content, cron, nextRunTime, isRepeat);
       
-      // 同时使用Bree调度（仅用于演示，实际应用中可能不需要）
-      const jobName = `cli-schedule-${taskId}`;
-      const jobConfig = {
-        name: jobName,
-        path: path.join(__dirname, '..', 'jobs', 'discord-task.js'),
-        cron: cron,
-        timezone: 'Asia/Shanghai',
-        worker: {
-          workerData: {
-            taskId,
-            userId,
-            channelId,
-            taskContent: content,
-            taskType: 'schedule'
-          }
-        }
-      };
+      console.log(JSON.stringify({
+        success: true,
+        message: '定时任务已成功保存到数据库，主进程将在同步后自动调度',
+        task: { id: taskId, cron, content, nextRun: nextRunTime, isRepeat }
+      }, null, 2));
       
-      const bree = new Bree({
-        root: false, // 禁用root目录检查
-        jobs: [jobConfig]
-      });
-      
-      bree.start().then(() => {
-        console.log(JSON.stringify({
-          success: true,
-          message: '定时任务已创建并调度',
-          task: { id: taskId, cron, content, nextRun: nextRunTime, isRepeat },
-          breeJob: jobName
-        }, null, 2));
-        
-        // 保持进程运行一段时间，让任务有机会执行
-        setTimeout(() => {
-          console.log('[CLI] 任务调度完成，进程即将退出');
-          process.exit(0);
-        }, 3000);
-      }).catch(error => {
-        console.log(JSON.stringify({
-          success: false,
-          message: `Bree调度失败，但任务已保存到数据库: ${error.message}`,
-          task: { id: taskId, cron, content, nextRun: nextRunTime, isRepeat }
-        }));
-        process.exit(1);
-      });
     } catch (e) {
       console.log(JSON.stringify({ success: false, message: `创建失败: ${e.message}` }));
     }
@@ -302,11 +263,6 @@ scheduleCmd
     }
   });
 
-function formatDateTime(date) {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
 // Delayed 命令 - 延迟任务管理
 const delayedCmd = program
   .command('delayed')
@@ -316,9 +272,8 @@ delayedCmd
   .command('wake <minutes> [message]')
   .description('延迟指定分钟后叫醒机器人')
   .action((minutes, message) => {
-    const { addDelayedTask } = require('../index');
+    const { addScheduledTask } = require('../db');
     
-    // 使用默认用户/频道（CLI 模式）
     const userId = process.env.DISCORD_USER_ID || 'cli-user';
     const channelId = process.env.DISCORD_CHANNEL_ID || 'cli-channel';
     
@@ -328,51 +283,24 @@ delayedCmd
       process.exit(1);
     }
     
-    console.log(`[CLI] 创建延迟任务: ${delayMinutes}分钟后叫醒机器人`);
-    
-    const Bree = require('bree');
-    const path = require('path');
-    
-    const jobName = `cli-delayed-wake-${Date.now()}`;
-    const jobConfig = {
-      name: jobName,
-      path: path.join(__dirname, '..', 'jobs', 'wake-bot.js'),
-      timeout: `${delayMinutes}m`,
-      worker: {
-        workerData: {
-          userId,
-          channelId,
-          message: message || '机器人已叫醒！',
-          taskType: 'delayed'
-        }
-      }
-    };
-    
-    const bree = new Bree({
-      root: false, // 禁用root目录检查
-      jobs: [jobConfig]
-    });
-    
-    bree.start().then(() => {
+    // 计算执行时间
+    const runDate = new Date(Date.now() + delayMinutes * 60 * 1000);
+    const nextRunTime = formatDateTime(runDate);
+    const taskContent = message || '机器人已叫醒！';
+
+    try {
+      // 延迟任务本质上是不重复的一次性任务
+      const taskId = addScheduledTask(userId, channelId, taskContent, null, nextRunTime, false);
+      
       console.log(JSON.stringify({
         success: true,
-        message: `延迟任务已创建，将在 ${delayMinutes} 分钟后执行`,
-        jobName,
-        executeTime: new Date(Date.now() + delayMinutes * 60 * 1000).toISOString()
+        message: `延迟任务已保存，将在 ${delayMinutes} 分钟后由主进程执行`,
+        taskId,
+        executeTime: nextRunTime
       }, null, 2));
-      
-      // 保持进程运行一段时间，让任务有机会执行
-      setTimeout(() => {
-        console.log('[CLI] 延迟任务已调度完成，进程即将退出');
-        process.exit(0);
-      }, 3000);
-    }).catch(error => {
-      console.log(JSON.stringify({
-        success: false,
-        message: `创建延迟任务失败: ${error.message}`
-      }));
-      process.exit(1);
-    });
+    } catch (e) {
+      console.log(JSON.stringify({ success: false, message: `创建延迟任务失败: ${e.message}` }));
+    }
   });
 
 program.parse();
