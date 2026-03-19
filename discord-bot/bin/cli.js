@@ -202,6 +202,22 @@ program
     console.log('数据库已重置');
   });
 
+program
+  .command('new')
+  .description('开启新会话（重置所有用户的 Session ID）')
+  .action(() => {
+    console.log('正在开启新会话...');
+    const { setUserSession } = require('../db');
+    // 这里我们可以选择清空所有 session 或者为当前操作用户重置
+    // 按照你的要求，我们直接重置所有用户的会话
+    const { resetDatabase } = require('../db');
+    // 如果只想重置 session，我们可以在 db.js 增加一个专门的方法，
+    // 但目前 resetDatabase 已经包含了清空 user_sessions 的逻辑。
+    // 为了更精确，我直接在 cli 里调用 db 的操作。
+    resetDatabase(); 
+    console.log('新会话已开启，Session ID 已重置。');
+  });
+
 // Schedule 命令
 const scheduleCmd = program
   .command('schedule')

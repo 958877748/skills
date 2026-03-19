@@ -41,6 +41,12 @@ node bin/cli.js schedule list
 node bin/cli.js schedule delete <任务ID>
 ```
 
+### 开启新会话
+
+```bash
+node bin/cli.js new
+```
+
 ## Cron 表达式说明
 
 ```
