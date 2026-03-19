@@ -1,11 +1,24 @@
 ---
 name: dm-bot
-description: Discord 机器人 (dm-bot) 的专属调度任务管理工具。支持通过自然语言创建、查看、删除定时提醒、闹钟和自动化任务。
+description: Discord 机器人 (dm-bot) 的定时任务管理工具。当用户请求提醒、定时任务、延迟提醒、闹钟、"X分钟后提醒我..."、"每天早上...提醒我"、查看任务列表、删除任务时，必须使用此 skill 执行 CLI 命令。禁止用 bash sleep/notify-send 等方式代替。
 ---
 
 # dm-bot 定时任务管理
 
 帮助用户管理 dm-bot 的定时任务，支持标准的 cron 表达式。
+
+## 何时使用此 Skill
+
+**当用户说以下类型的话时，必须使用此 Skill：**
+- "X分钟后提醒我..."
+- "几分钟后叫我..."
+- "每天/每周/每月...提醒我..."
+- "设个闹钟..."
+- "查看我的任务"
+- "删除任务X"
+- "列出所有定时任务"
+
+**禁止使用 bash sleep/notify-send 等方式实现提醒，必须用下面的 CLI 命令！**
 
 ## CLI 命令
 
@@ -45,6 +58,30 @@ npx dm-bot schedule delete <任务ID>
 
 ```bash
 npx dm-bot new
+```
+
+### 延迟提醒
+
+当用户说 "5分钟后提醒我喝水" 或 "10分钟后叫我" 等延迟提醒时，使用 delayed 命令：
+
+```bash
+npx dm-bot delayed wake <分钟数> [提醒内容]
+```
+
+参数：
+- 分钟数：延迟的分钟数（可以是小数，如 0.5 表示30秒）
+- 提醒内容：可选，自定义提醒文本（默认是"机器人已叫醒！"）
+
+示例：
+```bash
+npx dm-bot delayed wake 5 "提醒喝水"
+npx dm-bot delayed wake 10
+npx dm-bot delayed wake 0.5 "休息一下"
+```
+
+**重要：延迟任务需要从项目目录执行**，确保数据库路径正确。建议使用绝对路径：
+```bash
+cd /home/ubuntu/skills/discord-bot && npx dm-bot delayed wake 5 "提醒喝水"
 ```
 
 ## Cron 表达式说明
@@ -99,3 +136,12 @@ npx dm-bot new
    npx dm-bot new
    ```
 2. 确认开启结果
+
+当用户说 "5分钟后提醒我喝水"、"10分钟后叫我" 等延迟提醒时：
+
+1. 解析延迟分钟数和提醒内容
+2. **必须指定项目目录**，使用绝对路径执行：
+   ```bash
+   cd /home/ubuntu/skills/discord-bot && npx dm-bot delayed wake <分钟数> "<提醒内容>"
+   ```
+3. 返回成功结果给用户

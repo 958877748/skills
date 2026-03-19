@@ -276,22 +276,33 @@ async function processMessage(message, botClient = client) {
 function runOpencode(prompt, sessionId = null, userId = null, channelId = null) {
   return new Promise((resolve, reject) => {
     let finished = false;
-    
+
     const args = ['run', '--format', 'json', prompt];
     if (sessionId) args.push('--session', sessionId);
-    
+
     const isWin = process.platform === 'win32';
     const spawnOptions = {
       cwd: process.cwd(),
-      env: { 
-        ...process.env, 
+      env: {
+        ...process.env,
         SKILL_PATH: path.join(process.cwd(), '.opencode', 'tools'),
         DISCORD_USER_ID: userId || '',
         DISCORD_CHANNEL_ID: channelId || ''
       },
       stdio: ['ignore', 'pipe', 'pipe']
     };
-    
+
+    // 日志目录
+    const logsDir = path.join(os.homedir(), 'dm-bot', 'opencode-logs');
+    const fs = require('fs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+
+    // 生成日志文件名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+    const logFile = path.join(logsDir, `${timestamp}.log`);
+
     let childProcess;
     if (isWin) {
       childProcess = spawn('cmd.exe', ['/c', 'opencode', ...args], spawnOptions);
@@ -303,25 +314,39 @@ function runOpencode(prompt, sessionId = null, userId = null, channelId = null) 
     let stderr = '';
     let newSessionId = sessionId;
 
-    childProcess.stdout.on('data', (data) => { stdout += data.toString(); });
-    childProcess.stderr.on('data', (data) => { stderr += data.toString(); });
+    // 实时记录输出到日志
+    childProcess.stdout.on('data', (data) => {
+      const str = data.toString();
+      stdout += str;
+      fs.appendFileSync(logFile, `[stdout] ${str}`);
+    });
+    childProcess.stderr.on('data', (data) => {
+      const str = data.toString();
+      stderr += str;
+      fs.appendFileSync(logFile, `[stderr] ${str}`);
+    });
 
     childProcess.on('close', (code) => {
       if (finished) return;
       finished = true;
-      
+
+      // 记录命令信息
+      const cmdLine = `opencode ${args.join(' ')}`;
+      const logHeader = `[${new Date().toISOString()}] [INFO] Executing: ${cmdLine}\n`;
+      fs.appendFileSync(logFile, logHeader);
+
       if (code === 0) {
         let text = '';
         const jsonLines = stdout.trim().split('\n');
-        
+
         for (const line of jsonLines) {
           try {
             const trimmedLine = line.trim();
             if (!trimmedLine) continue;
-            
+
             const json = JSON.parse(trimmedLine);
             if (!newSessionId && json.sessionID) newSessionId = json.sessionID;
-            
+
             if (json.type === 'text' && json.part?.text) {
               text += json.part.text;
             }
@@ -331,8 +356,10 @@ function runOpencode(prompt, sessionId = null, userId = null, channelId = null) 
             }
           }
         }
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] [INFO] Completed successfully\n`);
         resolve({ text: text || '处理完成', sessionId: newSessionId });
       } else {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] [ERROR] Exit code: ${code}\n`);
         reject(new Error(stderr.trim() || `进程退出码: ${code}`));
       }
     });
@@ -340,6 +367,7 @@ function runOpencode(prompt, sessionId = null, userId = null, channelId = null) 
     childProcess.on('error', (error) => {
       if (!finished) {
         finished = true;
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] [ERROR] ${error.message}\n`);
         reject(new Error(`执行opencode失败: ${error.message}`));
       }
     });

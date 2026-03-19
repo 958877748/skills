@@ -2,6 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// 读取版本号
+const pkgPath = path.join(__dirname, 'package.json');
+let version = 'unknown';
+try {
+  version = JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version || 'unknown';
+} catch (e) {}
+
 const logDir = path.join(os.homedir(), 'dm-bot', 'logs');
 const logFile = path.join(logDir, 'bot.log');
 
@@ -9,6 +16,13 @@ const logFile = path.join(logDir, 'bot.log');
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
+
+// 第一行日志输出版本
+const versionLine = `[${new Date().toISOString()}] [INFO] dm-bot v${version} starting...`;
+try {
+  fs.appendFileSync(logFile, versionLine + '\n');
+} catch (err) {}
+console.log(versionLine);
 
 function formatMessage(level, message, data = null) {
   const timestamp = new Date().toISOString();
