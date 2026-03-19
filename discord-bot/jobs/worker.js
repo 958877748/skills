@@ -7,6 +7,19 @@ const db = require('../db');
 async function executeTask() {
   try {
     const { taskId, userId, channelId, taskContent, taskType, message } = workerData;
+    
+    // 增加存在性校验：如果 taskId 存在，检查数据库确认它没被删除
+    if (taskId) {
+      const allTasks = db.getUserTasks('all');
+      const isTaskStillAlive = allTasks.some(t => t.id === taskId && t.enabled === 1);
+      
+      if (!isTaskStillAlive) {
+        console.log(`[任务终止] 任务 ID: ${taskId} 已被删除或禁用，跳过执行`);
+        if (parentPort) parentPort.postMessage('done');
+        return;
+      }
+    }
+
     const content = taskContent || message || '定时任务触发';
     
     console.log(`[任务执行] 类型: ${taskType}, 内容: ${content}`);
