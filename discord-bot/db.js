@@ -4,10 +4,22 @@ const os = require('os');
 const fs = require('fs');
 const crypto = require('crypto');
 
-// 生成数据库文件名（使用路径的MD5哈希）
+// 查找项目根目录（向上查找 package.json）
+function findProjectRoot(startDir) {
+  let currentDir = startDir;
+  while (currentDir !== path.parse(currentDir).root) {
+    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
+      return currentDir;
+    }
+    currentDir = path.dirname(currentDir);
+  }
+  return startDir; // 找不到则返回当前目录
+}
+
+// 生成数据库文件名（使用项目根路径的MD5哈希）
 function generateDbFilename() {
-  const cwd = process.cwd();
-  const hash = crypto.createHash('md5').update(cwd).digest('hex').substring(0, 16);
+  const rootDir = findProjectRoot(process.cwd());
+  const hash = crypto.createHash('md5').update(rootDir).digest('hex').substring(0, 16);
   return `${hash}.db`;
 }
 

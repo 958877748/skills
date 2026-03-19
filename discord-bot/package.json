@@ -1,6 +1,6 @@
 {
   "name": "dm-bot",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "description": "Interactive Discord bot with OpenCode integration",
   "main": "index.js",
   "bin": {
