@@ -162,6 +162,15 @@ program
   });
 
 program
+  .command('install')
+  .description('安装/同步技能到本地 AI 目录 (.opencode/skills)')
+  .action(() => {
+    console.log('[install] 正在同步技能...');
+    copySkills();
+    console.log('[install] 同步完成！现在 AI 应该能识别到 dm-bot 技能了。');
+  });
+
+program
   .command('config')
   .description('配置 Discord Bot')
   .option('-t, --token <token>', '设置 Discord Bot Token', '')
