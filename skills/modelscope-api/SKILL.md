@@ -1,59 +1,61 @@
 ---
 name: modelscope-api
-description: Provides convenient access and invocation capabilities for ModelScope platform APIs, supporting text generation, image generation, and other AI model services. Use when working with ModelScope APIs for text generation, image generation, or model management tasks.
-license: Complete terms in LICENSE.txt
+description: 使用魔搭平台(ModelScope)API进行图片生成和编辑
 ---
 
-# ModelScope API Skill
+# ModelScope API 图片生成/编辑
 
-This skill provides convenient access to ModelScope platform APIs for text generation, image generation, and AI model services.
+## 环境准备
 
-## Quick Start
+- Node.js >= 18（使用内置 fetch）
+- 设置环境变量：
 
-### Text Generation
-
-```javascript
-const { ModelScopeAPI } = require('./scripts/modelscope-api');
-
-// Initialize API client
-const api = new ModelScopeAPI('your-modelscope-token');
-
-// Generate text
-const response = await api.chatCompletion(
-    'Qwen/Qwen3-VL-235B-A22B-Instruct',
-    [{ role: 'user', content: 'Hello' }]
-);
-console.log(response.choices[0].message.content);
-
-// Generate text with streaming
-const stream = await api.chatCompletionStream(
-    'Qwen/Qwen3-VL-235B-A22B-Instruct',
-    [{ role: 'user', content: 'Hello' }]
-);
-// Process streaming response (see examples.js for full implementation)
+```bash
+set MODELSCOPE_API_KEY=ms-你的API密钥
 ```
 
-### Image Generation
+## 功能
 
-```javascript
-// Generate image
-const imageUrl = await api.generateImage(
-    'Tongyi-MAI/Z-Image-Turbo',
-    'A golden cat'
-);
-console.log('Generated image:', imageUrl);
+### 1. 图片生成 (image-generator.js)
+
+使用 `Tongyi-MAI/Z-Image-Turbo` 模型根据提示词生成图片。
+
+```bash
+node image-generator.js -p "一只可爱的猫咪"
+node image-generator.js -p "科幻城市夜景" -o city_night.jpg
 ```
 
-## When to Use References
+参数：
+- `-p, --prompt` - 生成提示词（必需）
+- `-o, --output` - 输出文件名（可选）
+- `-h, --help` - 显示帮助
 
-- **API Configuration**: See [references/api_configuration.md](references/api_configuration.md) for setup details and supported models
-- **Advanced Usage**: See [references/advanced_usage.md](references/advanced_usage.md) for custom parameters, batch operations, and error handling
-- **Complete Examples**: See [references/examples.md](references/examples.md) for detailed usage examples including LoRA models
+### 2. 图片编辑 (image-editor.js)
 
-## Key Features
+使用 `Qwen/Qwen-Image-Edit-2511` 模型编辑已有图片。
 
-- Text generation with OpenAI-compatible interface
-- Image generation with asynchronous processing
-- LoRA model support
-- Streaming responses for text generation
-- Batch image generation capabilities
+```bash
+node image-editor.js -i ./photo.jpg -p "给图中的人戴上墨镜"
+node image-editor.js -i ./dog.png -p "给狗戴上生日帽" -o birthday_dog.jpg
+```
+
+参数：
+- `-i, --image` - 输入图片路径（必需）
+- `-p, --prompt` - 编辑提示词（必需）
+- `-o, --output` - 输出文件名（可选）
+- `-h, --help` - 显示帮助
+
+## 输出信息
+
+脚本会显示模型调用限制信息：
+- 模型剩余调用次数
+- 总请求剩余次数
+
+## 目录结构
+
+```
+modelscope-api/
+├── SKILL.md              # 技能说明文档
+├── image-generator.js    # 图片生成脚本
+└── image-editor.js       # 图片编辑脚本
+```
