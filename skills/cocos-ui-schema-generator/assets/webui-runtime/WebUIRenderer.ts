@@ -1,5 +1,5 @@
 const { ccclass, property } = cc._decorator;
-        
+         
 import WebUIBackground from './WebUIBackground';
 import { WebUILayoutEngine } from './layout';
 import { mergeStyle } from './style';
@@ -12,6 +12,7 @@ export default class WebUIRenderer extends cc.Component {
 
   private _engine = new WebUILayoutEngine();
   private _schema: WebUINodeSchema | null = null;
+  private _idNodeMap: { [id: string]: cc.Node } = {};
 
   onLoad() {
     if (this.autoRenderOnLoad && this._schema) {
@@ -21,6 +22,7 @@ export default class WebUIRenderer extends cc.Component {
 
   render(schema: WebUINodeSchema) {
     this._schema = schema;
+    this._idNodeMap = {};
     this.node.removeAllChildren();
     this.node.setAnchorPoint(0, 1);
 
@@ -83,9 +85,33 @@ export default class WebUIRenderer extends cc.Component {
     this.refreshBackgrounds(content);
   }
 
+  getNodeById(id: string): cc.Node | null {
+    return this._idNodeMap[id] || null;
+  }
+
+  getNodesByIds(ids: string[]): { [id: string]: cc.Node | null } {
+    const result: { [id: string]: cc.Node | null } = {};
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      result[id] = this.getNodeById(id);
+    }
+    return result;
+  }
+
+  hasNodeId(id: string): boolean {
+    return !!this._idNodeMap[id];
+  }
+
   private createNodeTree(schema: WebUINodeSchema, layoutScale: number = 1, fontScale: number = 1): cc.Node {
     const node = new cc.Node(schema.name || schema.id || schema.type);
     const style = mergeStyle(schema.type, schema.style);
+
+    if (schema.id) {
+      if (this._idNodeMap[schema.id]) {
+        cc.warn('[WebUIRenderer] duplicate schema id:', schema.id);
+      }
+      this._idNodeMap[schema.id] = node;
+    }
 
     node.opacity = Math.floor((style.opacity != null ? style.opacity : 1) * 255);
     node.zIndex = style.zIndex || 0;

@@ -1,10 +1,10 @@
 const { ccclass, property } = cc._decorator;
-
+ 
 import WebUIRenderer from './WebUIRenderer';
 import { withdrawExample1 } from './examples/withdrawExample1';
 
 @ccclass
-export default class WebUIDemo extends cc.Component {
+export default class WebUIExample extends cc.Component {
   @property(cc.Node)
   target: cc.Node = null;
 
