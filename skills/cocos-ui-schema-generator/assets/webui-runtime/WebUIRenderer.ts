@@ -176,14 +176,18 @@ export default class WebUIRenderer extends cc.Component {
       return;
     }
 
-    cc.resources.load(src, cc.SpriteFrame, (error: Error, asset: cc.SpriteFrame) => {
-      if (error) {
-        cc.warn('[WebUIRenderer] image load failed:', src, error.message);
-        return;
-      }
+    if (cc.resources) {
+      cc.resources.load(src, cc.SpriteFrame, (error: Error, asset: cc.SpriteFrame) => {
+        if (error) {
+          cc.warn('[WebUIRenderer] image load failed:', src, error.message);
+          return;
+        }
 
-      sprite.spriteFrame = asset;
-    });
+        sprite.spriteFrame = asset;
+      });
+    } else {
+      cc.warn('[WebUIRenderer] not resources bundle')
+    }
   }
 
   private refreshBackgrounds(node: cc.Node) {
