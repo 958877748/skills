@@ -3,7 +3,7 @@
  * @module lib/node-utils
  */
 
-import { generateId, parseColorToCcColor, decompressUUID } from './utils.js';
+import { generateId, parseColorToCcColor, decompressUUID, colorToHex } from './utils.js';
 import * as fs from 'fs';
 import * as path from 'path';
 export function createNodeData(name) {
@@ -83,7 +83,9 @@ export function setNodeProperties(node, props) {
         setNodeProperty(node, key, value);
     }
 }
-export function getNodeState(node) {
+export function getNodeState(node, groups) {
+    const c = node._color;
+    const gIdx = node._groupIndex ?? node.groupIndex ?? 0;
     return {
         name: node._name,
         active: node._active,
@@ -95,6 +97,8 @@ export function getNodeState(node) {
         scaleY: node._trs?.array?.[8] ?? 1,
         rotation: node._eulerAngles?.z ?? 0,
         opacity: node._opacity ?? 255,
+        color: c ? colorToHex(c.r, c.g, c.b, c.a) : '#ffffff',
+        group: groups?.[gIdx] ?? 'default',
         anchorX: node._anchorPoint?.x ?? 0.5,
         anchorY: node._anchorPoint?.y ?? 0.5
     };

@@ -1,4 +1,4 @@
-/** @module commands/prefab-create */
+/** @module commands/create-prefab */
 
 import * as fs from 'fs';
 import * as path from 'path';

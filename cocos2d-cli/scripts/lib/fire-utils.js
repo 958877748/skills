@@ -267,6 +267,50 @@ export function buildMaps(data) {
     return { nodeMap, compMap };
 }
 export function findNodeIndex(data, path) {
+    if (!data || !path) return -1;
+    const parts = path.split('/').filter(Boolean);
+    if (parts.length === 0) return -1;
+
+    const isPrefab = data[0]?.__type__ === 'cc.Prefab';
+    const rootIdx = isPrefab ? 1 : 1;
+    const root = data[rootIdx];
+    if (!root) return -1;
+
+    let currentIdx = rootIdx;
+    let current = root;
+
+    for (let i = 0; i < parts.length; i++) {
+        const name = parts[i];
+        if (i === 0) {
+            if (current._name === name) continue;
+            if (current.__type__ === 'cc.Scene') {
+                const found = findChildByName(data, rootIdx, name);
+                if (found !== -1) {
+                    currentIdx = found;
+                    current = data[found];
+                    continue;
+                }
+            }
+            return -1;
+        }
+        const found = findChildByName(data, currentIdx, name);
+        if (found === -1) return -1;
+        currentIdx = found;
+        current = data[found];
+    }
+
+    return currentIdx;
+}
+
+function findChildByName(data, parentIdx, name) {
+    const parent = data[parentIdx];
+    if (!parent?._children) return -1;
+    for (const ref of parent._children) {
+        const child = data[ref.__id__];
+        if (child && child._name === name) {
+            return ref.__id__;
+        }
+    }
     return -1;
 }
 export function rebuildReferences(data) {
