@@ -3,18 +3,12 @@
   "version": "2.2.1",
   "description": "Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes",
   "type": "module",
-  "main": "dist/bin/cocos2d-cli.js",
+  "main": "scripts/cli.js",
   "bin": {
-    "cocos2d-cli": "dist/bin/cocos2d-cli.js"
+    "cocos2d-cli": "scripts/cli.js"
   },
-  "files": [
-    "dist",
-    "data"
-  ],
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch",
-    "prepare": "npm run build",
+    "start": "node scripts/cli.js",
     "test": "echo \"No tests specified\" && exit 1"
   },
   "keywords": [
@@ -23,7 +17,8 @@
     "cli",
     "scene",
     "fire",
-    "screenshot"
+    "screenshot",
+    "skill"
   ],
   "author": "",
   "license": "MIT",
@@ -31,10 +26,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "cheerio": "^1.0.0",
+    "css-tree": "^3.1.0",
     "playwright": "^1.58.2"
-  },
-  "devDependencies": {
-    "@types/node": "^22.15.17",
-    "typescript": "^5.9.3"
   }
 }

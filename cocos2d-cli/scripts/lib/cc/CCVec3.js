@@ -1,0 +1,31 @@
+/**
+ * Cocos Creator CCVec3 模拟
+ * @module lib/cc/CCVec3
+ */
+
+export default class CCVec3 {
+    __type__;
+    x;
+    y;
+    z;
+    constructor(x = 0, y = 0, z = 0) {
+        this.__type__ = 'cc.Vec3';
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+    set(x, y, z = 0) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        return this;
+    }
+    toJSON() {
+        return {
+            __type__: this.__type__,
+            x: this.x,
+            y: this.y,
+            z: this.z
+        };
+    }
+}
