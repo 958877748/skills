@@ -480,10 +480,22 @@ Cocos 默认锚点在节点中心：
 ## 项目结构
 
 ```text
-bin/cocos2d-cli.js     # CLI 入口
-src/commands/          # 各命令实现
-src/lib/               # 场景/节点/组件处理逻辑
-data/script_map.json   # 脚本组件映射
+scripts/
+├── tree.js              # 查看节点树
+├── get.js               # 获取节点/组件属性
+├── set.js               # 修改节点属性
+├── set-component.js     # 修改组件属性
+├── add.js               # 添加节点
+├── remove.js            # 删除节点
+├── add-component.js     # 添加组件
+├── remove-component.js  # 删除组件
+├── create-prefab.js     # JSON → 预制体
+├── create-scene.js      # 创建场景
+├── build.js             # 构建脚本映射
+├── screenshot.js        # JSON 渲染截图
+└── lib/                 # 核心库
+data/
+└── script_map.json      # 脚本组件映射
 ```
 
 ## License
