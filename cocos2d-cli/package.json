@@ -3,10 +3,6 @@
   "version": "2.2.1",
   "description": "Command-line tools for AI to read and manipulate Cocos Creator 2.4.x project scenes",
   "type": "module",
-  "main": "scripts/cli.js",
-  "bin": {
-    "cocos2d-cli": "scripts/cli.js"
-  },
   "scripts": {
     "start": "node scripts/cli.js",
     "test": "echo \"No tests specified\" && exit 1"

@@ -1,3 +1,8 @@
+---
+name: cocos2d-cli
+description: Cocos Creator 2.4.x 场景/预制体命令行工具，支持读写 .fire/.prefab、JSON 生成 UI、截图预览
+---
+
 # cocos2d-cli
 
 Cocos Creator 2.4.x 场景/预制体命令行工具。
@@ -9,16 +14,16 @@ AI 通过此技能可以直接读写 `.fire` 和 `.prefab` 文件，支持从简
 ```bash
 # 1. 查看帮助
 cd <项目目录>
-node scripts/cli.js --help
+node scripts/tree.js --help
 
 # 2. 查看节点树
-node scripts/cli.js tree assets/main.fire
+node scripts/tree.js assets/main.fire
 
 # 3. 创建预制体
-node scripts/cli.js create-prefab panel.json assets/Panel.prefab
+node scripts/create-prefab.js panel.json assets/Panel.prefab
 
 # 4. 截图预览
-node scripts/cli.js screenshot panel.json -o ./screenshots --width 750 --height 1334
+node scripts/screenshot.js panel.json -o ./screenshots --width 750 --height 1334
 ```
 
 ## 命令全集
@@ -26,7 +31,7 @@ node scripts/cli.js screenshot panel.json -o ./screenshots --width 750 --height 
 ### tree - 查看节点树
 
 ```bash
-node scripts/cli.js tree <场景.fire | 预制体.prefab>
+node scripts/tree.js <场景.fire | 预制体.prefab>
 ```
 
 输出 JSON 格式的节点树结构，包含节点名、子节点、组件列表。
@@ -39,7 +44,7 @@ node scripts/cli.js tree <场景.fire | 预制体.prefab>
 ### get - 获取属性（开发中）
 
 ```bash
-node scripts/cli.js get <文件> <节点路径> [属性名|组件类型]
+node scripts/get.js <文件> <节点路径> [属性名|组件类型]
 ```
 
 - 不传第三个参数：返回全部基础属性
@@ -51,7 +56,7 @@ node scripts/cli.js get <文件> <节点路径> [属性名|组件类型]
 ### set - 修改节点属性（开发中）
 
 ```bash
-node scripts/cli.js set <文件> <节点路径> <属性名> <值>
+node scripts/set.js <文件> <节点路径> <属性名> <值>
 ```
 
 支持属性：`name`, `active`, `x`, `y`, `width`, `height`, `anchorX`, `anchorY`, `opacity`, `scaleX`, `scaleY`, `rotation`
@@ -59,18 +64,18 @@ node scripts/cli.js set <文件> <节点路径> <属性名> <值>
 ### set-component - 修改组件属性（开发中）
 
 ```bash
-node scripts/cli.js set-component <文件> <节点路径> <组件类型> <属性名> <值>
+node scripts/set-component.js <文件> <节点路径> <组件类型> <属性名> <值>
 ```
 
 示例：
 ```bash
-node scripts/cli.js set-component assets/main.fire Canvas/Label Label string "Hello"
+node scripts/set-component.js assets/main.fire Canvas/Label Label string "Hello"
 ```
 
 ### add - 添加节点（开发中）
 
 ```bash
-node scripts/cli.js add <文件> <父节点路径> <节点名称> [选项]
+node scripts/add.js <文件> <父节点路径> <节点名称> [选项]
 ```
 
 选项：`--x=`, `--y=`, `--width=`, `--height=`, `--scaleX=`, `--scaleY=`, `--rotation=`, `--active=`, `--type=sprite|label|button`, `--string=`, `--fontSize=`
@@ -78,15 +83,15 @@ node scripts/cli.js add <文件> <父节点路径> <节点名称> [选项]
 ### remove / add-component / remove-component（开发中）
 
 ```bash
-node scripts/cli.js remove <文件> <节点路径>
-node scripts/cli.js add-component <文件> <节点路径> <类型>
-node scripts/cli.js remove-component <文件> <节点路径> <类型>
+node scripts/remove.js <文件> <节点路径>
+node scripts/add-component.js <文件> <节点路径> <类型>
+node scripts/remove-component.js <文件> <节点路径> <类型>
 ```
 
 ### build - 构建组件映射
 
 ```bash
-node scripts/cli.js build <Cocos项目目录>
+node scripts/build.js <Cocos项目目录>
 ```
 
 扫描 `library/imports`，构建脚本哈希到类名的映射。在读取自定义脚本组件前需要先执行。
@@ -95,16 +100,16 @@ node scripts/cli.js build <Cocos项目目录>
 
 ```bash
 # 从 JSON 创建
-node scripts/cli.js create-prefab <json文件路径> <输出.prefab>
+node scripts/create-prefab.js <json文件路径> <输出.prefab>
 
 # 从 HTML 创建
-node scripts/cli.js create-prefab <html文件路径> <输出.prefab>
+node scripts/create-prefab.js <html文件路径> <输出.prefab>
 ```
 
 ### create-scene - 创建场景（开发中）
 
 ```bash
-node scripts/cli.js create-scene [JSON文件路径] <输出.fire>
+node scripts/create-scene.js [JSON文件路径] <输出.fire>
 ```
 
 不传 JSON 时创建默认场景（含 Canvas + Main Camera）。
@@ -112,7 +117,7 @@ node scripts/cli.js create-scene [JSON文件路径] <输出.fire>
 ### screenshot - JSON 渲染截图（✅ 已实现）
 
 ```bash
-node scripts/cli.js screenshot <json文件> [选项]
+node scripts/screenshot.js <json文件> [选项]
 ```
 
 选项：
@@ -209,8 +214,8 @@ Canvas/GameScene/NodeA          # 三级节点
 
 ```bash
 # 以下两种写法都能正确找到项目根
-node scripts/cli.js tree assets/main.fire
-node scripts/cli.js tree C:/Projects/MyGame/assets/ui/panel.prefab
+node scripts/tree.js assets/main.fire
+node scripts/tree.js C:/Projects/MyGame/assets/ui/panel.prefab
 ```
 
 ## 环境要求

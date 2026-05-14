@@ -75,7 +75,7 @@ export function loadScriptMap(filePath) {
  * @param {string} projRoot
  * @returns {Object<string,string>}
  */
-function autoBuildScriptMap(projRoot) {
+export function autoBuildScriptMap(projRoot) {
   const libDir = path.join(projRoot, 'library', 'imports');
   if (!fs.existsSync(libDir)) {
     return autoBuildFromMeta(projRoot);
