@@ -88,6 +88,16 @@ node scripts/add-component.js <文件> <节点路径> <类型>
 node scripts/remove-component.js <文件> <节点路径> <类型>
 ```
 
+### start-scene - 获取开始场景路径
+
+```bash
+node scripts/start-scene.js [项目路径]
+```
+
+输出格式：`db:assets/scene/main.fire`
+
+- 不传参数时从当前目录自动检测项目根
+
 ### build - 构建组件映射
 
 ```bash
