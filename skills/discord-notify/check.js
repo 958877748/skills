@@ -140,16 +140,17 @@ async function testApi() {
 }
 
 /**
- * 测试发送消息
+ * 验证 User ID 是否有效
+ * 通过创建 DM 频道来验证（不会发送消息）
  */
-async function testSend() {
-  console.log('\n📨 测试发送消息...\n');
+async function testUserId() {
+  console.log('\n👤 验证 User ID...\n');
 
   const botToken = process.env.DISCORD_BOT_TOKEN;
   const userId = process.env.DISCORD_USER_ID;
 
   if (!botToken || !userId) {
-    warn('跳过发送测试（环境变量未配置）');
+    warn('跳过 User ID 验证（环境变量未配置）');
     return;
   }
 
@@ -163,7 +164,6 @@ async function testSend() {
   const fetchOptions = agent ? { agent } : {};
 
   try {
-    // 创建 DM
     const dmRes = await fetch('https://discord.com/api/v10/users/@me/channels', {
       method: 'POST',
       headers,
@@ -171,30 +171,19 @@ async function testSend() {
       ...fetchOptions
     });
 
-    if (!dmRes.ok) {
-      const body = await dmRes.text();
-      fail(`无法创建私聊: HTTP ${dmRes.status}`);
-      return;
-    }
-
-    const dm = await dmRes.json();
-
-    // 发送测试消息
-    const msgRes = await fetch(`https://discord.com/api/v10/channels/${dm.id}/messages`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ content: '🧪 discord-notify 测试消息 - 如果你看到这条消息，说明配置成功！' }),
-      ...fetchOptions
-    });
-
-    if (msgRes.ok) {
-      pass('测试消息发送成功，请检查 Discord');
-      results.env.TEST_MESSAGE_SENT = true;
+    if (dmRes.ok) {
+      const dm = await dmRes.json();
+      pass(`User ID 有效，DM 频道 ID: ${dm.id}`);
+      results.env.DM_CHANNEL_ID = dm.id;
+    } else if (dmRes.status === 400) {
+      fail('User ID 无效或用户不存在');
+      results.missing.push('DISCORD_USER_ID (无效)');
     } else {
-      fail(`消息发送失败: HTTP ${msgRes.status}`);
+      const body = await dmRes.text();
+      fail(`验证失败: HTTP ${dmRes.status}`);
     }
   } catch (err) {
-    fail(`发送测试失败: ${err.message}`);
+    fail(`验证失败: ${err.message}`);
   }
 }
 
@@ -266,7 +255,7 @@ async function main() {
   checkEnv();
   checkDeps();
   await testApi();
-  await testSend();
+  await testUserId();
   printGuide();
   printJsonResult();
 }

@@ -26,8 +26,8 @@ cd discord-notify && node check.js
 检测脚本会检查：
 - ✅ 环境变量是否配置（DISCORD_BOT_TOKEN, DISCORD_USER_ID）
 - ✅ 依赖是否安装（node-fetch, https-proxy-agent）
-- ✅ Discord API 连接是否正常
-- ✅ 测试消息是否能发送
+- ✅ Bot Token 是否有效
+- ✅ User ID 是否有效（验证 DM 频道可创建）
 
 **根据检测结果，AI 应指导用户完成配置。**
 
