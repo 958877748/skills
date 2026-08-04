@@ -5,7 +5,7 @@ description: Use when the user provides a PoEDB mercenary URL such as poedb.tw/c
 
 # PoE China Mercenary Trade
 
-Use only the China-server CLI at `D:\skills\poe-mercenary-trad\mercenary-search.js`. Do not use the international-server adapters under `tools\bb-browser`.
+Use only the China-server CLI at `D:\skills\poe-mercenary-trade\mercenary-search.js`. Do not use the international-server adapters under `tools\bb-browser`.
 
 ## Preconditions
 
@@ -29,13 +29,13 @@ If the user asks for an output mercenary without more detail, assume physical me
 Use JSON output and let the CLI resolve the Chinese build name through the trade site's `/api/trade/data/items` data:
 
 ```powershell
-node D:\skills\poe-mercenary-trad\mercenary-search.js --build "先锋" --max-level 74 --limit 10 --json
+node D:\skills\poe-mercenary-trade\mercenary-search.js --build "先锋" --max-level 74 --limit 10 --json
 ```
 
 For a recommendation rather than a quick price lookup, scan all candidate IDs currently returned by Trade:
 
 ```powershell
-node D:\skills\poe-mercenary-trad\mercenary-search.js --build "先锋" --max-level 74 --scan-all --json
+node D:\skills\poe-mercenary-trade\mercenary-search.js --build "先锋" --max-level 74 --scan-all --json
 ```
 
 Add user-specified options when present:
